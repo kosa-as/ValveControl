@@ -1,0 +1,52 @@
+
+import alarm-interfaces.dzn;
+
+component alarm
+{
+  provides iconsole console;
+  requires isiren siren;
+  requires isensor sensor;
+  requires itimer timer;
+  requires ipin auth;
+
+  behavior
+  {
+    bool grace_period = false;
+
+    [console.state.Disarmed] {
+      on console.arm(pin): {
+        bool valid = auth.valid(pin);
+        if(valid)
+          timer.set();
+        reply(valid);
+      }
+      on console.disarm(pin): reply(false);
+    }
+    [!console.state.Disarmed] {
+      on console.arm(pin): reply(false);
+      on console.disarm(pin): {
+        bool valid = auth.valid(pin);
+        if(valid) {
+          grace_period = false;
+          timer.cancel();
+          if(siren.enabled)
+            siren.disable();
+        }
+        reply(valid);
+      }
+    }
+    on timer.timeout(): {
+      if(!grace_period) {
+        timer.set();
+        if(sensor.value()) {
+          grace_period = true;
+          console.detected();
+        }
+      } else {
+        grace_period = false;
+        siren.enable();
+      }
+    }
+  }
+}
+

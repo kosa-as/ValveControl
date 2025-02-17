@@ -1,0 +1,597 @@
+// Verum-Dezyne --- An IDE for Dezyne
+//
+// Copyright © 2019,2020 Rob Wieringa <Rob.Wieringa@verum.com>
+// Copyright © 2019,2020,2021 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+// Copyright © 2020 Paul Hoogendijk <paul.hoogendijk@verum.com>
+// Copyright © 2021 Rutger van Beusekom <rutger.van.beusekom@verum.com>
+//
+// This file is part of Verum-Dezyne.
+//
+// Verum-Dezyne is property of Verum Software Tools BV <support@verum.com>.
+// All rights reserved.
+
+import daemon_interface.dzn;
+import ../transport/transport_interface.dzn;
+import ../transport/transport.dzn;
+
+
+$ (define (log o string . rest) (let ((log-debug (dzn:get (.locator o) <procedure> 'log-debug))) (apply log-debug (cons string rest)))) $
+
+namespace daemon {
+
+  interface Icommand {
+    out void command(command_t cmd);
+
+    in void dummy();
+    in void result(data_t data);
+
+    behavior {
+      enum State { Idle, Busy };
+      State state = State.Idle;
+      on dummy: {} // avoid deadlock
+      [state.Idle] {
+        on result: illegal;
+        on optional: { command; state = State.Busy; }
+      }
+      [state.Busy] {
+        on result: state = State.Idle;
+      }
+    }
+  }
+
+  interface Istore {
+    in void setup();
+
+    in void command(command_t command);
+    out void result(data_t data);
+
+    in void request(notification_t notification);
+    out void update(data_t data);
+    in void back();
+    in void event(event_t event);
+    in bool get_selection(out selection_t selection);
+    in void get_location(in selection_t selection, out location_t loc);
+
+    behavior {
+      enum State {Idle, Active, Busy, Canceling};
+      State state = State.Idle;
+
+      [!state.Idle] on setup: illegal;
+      [state.Idle] {
+        on setup: state = State.Active;
+        on command, request, back, event, get_location: illegal;
+        on get_selection: illegal;
+      }
+      [state.Active] {
+        on command: state = State.Busy;
+        on request: update;
+        on back: state = State.Busy;
+        on event: state = State.Busy;
+        on get_selection: reply(true);
+        on get_selection: reply(false);
+        on get_location: {}
+      }
+      [state.Busy] {
+        on inevitable: {
+          result;
+          state = State.Active;
+        }
+        [!state.Active] on command, request, back, event, get_selection, get_location: illegal;
+        on command, request, back, event, get_selection, get_location: illegal;
+      }
+    }
+  }
+
+  interface Iconnect {
+    in void setup(config_t config); // listen for connection(s)
+    out void listening();
+    out void error(error_t e);
+
+    out void connected();
+    out void disconnect(message_t msg);
+
+    behavior {
+      enum State { Idle, Disconnected, Connected };
+      State state = State.Idle;
+
+      [state.Idle] {
+        on setup: { listening; state = State.Disconnected; }
+        on setup: { error; }
+      }
+      [state.Disconnected] {
+        on setup: illegal;
+        on inevitable: { connected; state = State.Connected; }
+      }
+      [state.Connected] {
+        on setup: illegal;
+        on inevitable: { disconnect; state = State.Disconnected; }
+      }
+    }
+  }
+
+  interface Iview {
+    in void notify(notification_t notification); // model update
+    out void request(notification_t notification); // query model part or whole
+    in void update(data_t data); // send model part or whole
+
+    in void go_to(selection_t selection); // perform focus or highlight
+    out void selected(selection_t selection); // request focus or highlight
+
+    in void go_to_index(selection_t selection);
+    out void index_selected(selection_t selection);
+
+    out void back();
+    out void event(event_t event);
+
+    behavior {
+      on optional: request;
+      on update: {}
+      on go_to: {}
+      on go_to_index: {}
+
+      on optional: selected;
+      on optional: index_selected;
+      on optional: back;
+      on optional: event;
+      on notify: {}
+    }
+  }
+
+  component Daemon_controller {
+    provides Istart start;
+    requires Istore store;
+    requires Iview view;
+    requires Iconnect vconnect;
+    requires Icommand command;
+    requires Iconnect iconnect;
+    requires Ieditor editor;
+    requires Iconnect econnect;
+    requires Irouting routing;
+
+    behavior {
+      enum State {Initial, Ready, Error, CommandBusy, ViewBusy};
+      State state = State.Initial;
+      bool vconnected = false;
+      bool iconnected = false;
+      bool econnected = false;
+
+      config_t iconfig;
+      config_t vconfig;
+      config_t econfig;
+
+      [!vconnected] on vconnect.connected(): vconnected = true;
+      on vconnect.disconnect(e): vconnected = false;
+      [!iconnected] on iconnect.connected(): iconnected = true;
+      on iconnect.disconnect(e): iconnected = false;
+      [!econnected] on econnect.connected(): econnected = true;
+      on econnect.disconnect(e): econnected = false;
+
+      [state.Initial] {
+        on start.setup(iconfig_p, vconfig_p, econfig_p): {
+          iconfig = iconfig_p;
+          vconfig = vconfig_p;
+          econfig = econfig_p;
+          store.setup();
+          iconnect.setup(iconfig);
+        }
+        on iconnect.error(e): { start.error(e); state = State.Error; }
+        on iconnect.listening(): { vconnect.setup(vconfig); }
+        on vconnect.error(e): { start.error(e); state = State.Error; }
+        on vconnect.listening(): { econnect.setup(econfig); }
+        on econnect.error(e): { start.error(e); state = State.Error; }
+        on econnect.listening(): {
+          start.set_up();
+          state = State.Ready;
+        }
+      }
+
+      [!state.Ready] {
+        on command.command(cmd): {}
+        on view.selected(selection): {}
+        on view.index_selected(selection): {}
+        on view.back(): {}
+        on view.event(event): {}
+        on view.request(notification): {
+          //data_t foo = $log("----- state = %s, view.request: notification=%j", this.state, notification)$;
+          data_t foo = $(log o "----- state = ~s, view.request: notification=~s\n" (.state o) notification)$;
+        }
+      }
+      [state.Ready] {
+        on view.request(notification): {
+          //data_t foo = $log("----- state = %s, view.request: notification=%j", this.state, notification)$;
+          data_t foo = $(log o "----- state = ~s, view.request: notification=~s\n" (.state o) notification)$;
+          notification_t notification2;
+          routing.viewlabel2storelabel(notification,notification2);
+          store.request(notification2);
+        }
+        on view.selected(selection): {
+          //data_t foo = $log("----- state = %s, view.selected: view.go_to selection=%j", this.state, selection)$;
+          data_t foo = $(log o "----- state = ~s, view.request: selection=~s\n" (.state o) selection)$;
+          view.go_to(selection);
+          location_t out_selection;
+          store.get_location(selection, out_selection);
+          editor.go_to_location(out_selection);
+        }
+        on view.index_selected(selection): {
+          location_t out_selection;
+          store.get_location(selection, out_selection);
+          editor.go_to_location(out_selection);
+          view.go_to_index(selection);
+        }
+        on view.back(): {
+          store.back();
+          state = State.ViewBusy;
+        }
+        on view.event(event): {
+          //data_t foo = $console.log("----- EVENT")$;
+          data_t foo = $(log o "----- EVENT")$;
+          store.event(event);
+          state = State.ViewBusy;
+        }
+        on store.update(data): {
+          data_t out_data;
+          routing.storedata2viewdata(data,out_data);
+          //data_t foo = $log("----- store.update: view.update")$;
+          data_t foo = $(log o "----- store.update: view.update\n")$;
+          view.update(out_data);
+          selection_t selection;
+          bool valid = store.get_selection(selection);
+          if (valid) view.go_to(selection);
+          state = State.Ready;
+        }
+        on command.command(cmd):
+        {
+          store.command(cmd);
+          state = State.CommandBusy;
+        }
+      }
+      [state.CommandBusy] {
+        on store.update(data): {}
+        on store.result(data): {
+          command.result(data);
+          label_t label;
+          routing.storedata2viewlabel(data,label);
+          //data_t foo = $log("----- state = %s, result:notify: label=%j", this.state, label.value)$;
+          data_t foo = $(log o "----- state = ~s, view.request: label=~s\n" (.state o) label)$;
+          if (vconnected) view.notify(label);
+          state = State.Ready;
+        }
+      }
+      [state.ViewBusy] {
+        on store.update(data): {}
+        on store.result(data): {
+          label_t label;
+          routing.storedata2viewlabel(data,label);
+          //data_t foo = $log("----- state = %s, result:notify: label=%j", this.state, label.value)$;
+          data_t foo = $(log o "----- state = ~s, view.request: label=~s\n" (.state o) label)$;
+          if (vconnected) view.notify(label);
+          state = State.Ready;
+        }
+      }
+      [!state.Initial] {
+        on start.setup(i,v,e): {}
+      }
+    }
+  }
+
+  component Command_proxy {
+    provides Icommand command;
+    provides Iconnect connect;
+    system {
+      Command_proxy_controller controller;
+      Command_data2event data2event;
+      transport.Transport_system transprt;
+
+      command <=> controller.command;
+      connect <=> controller.connect;
+      controller.data2event <=> data2event.command_data2event;
+      controller.socket <=> transprt.websocket_transport;
+    }
+  }
+
+  component Command_proxy_controller {
+    provides Icommand command;
+    provides Iconnect connect;
+    requires transport.Iwebsocket socket;
+    requires Icommand_data2event data2event;
+
+    behavior {
+      config_t config;
+      enum State { Idle, Listening, Connected };
+      enum Task { Idle, Busy };
+      State state = State.Idle;
+      Task task = Task.Idle;
+
+      on command.dummy(): {}
+
+      [!state.Idle] {
+        on socket.error(ws, e): {}
+      }
+      [state.Idle] {
+        on connect.setup(config): { socket.listen(config); }
+        on socket.error(ws, e): { connect.error(e); }
+        on socket.listening(): { connect.listening(); state = State.Listening; }
+      }
+      [state.Listening] {
+        on socket.connected(ws): { connect.connected(); state = State.Connected; }
+      }
+      [!state.Connected] {
+        [task.Busy] {
+          on data2event.command(cmd): {} // ignore while busy
+        }
+      }
+      [state.Connected && task.Busy] {
+        on command.result(data): {
+          data2event.wrap($"result"$, data);
+          task = Task.Idle;
+        }
+      }
+      [!state.Connected && task.Busy] {
+        on command.result(data): task = Task.Idle;
+      }
+      [state.Connected] {
+        [task.Idle] {
+          on data2event.command(cmd): {
+            command.command(cmd);
+            task = Task.Busy;
+          }
+        }
+        [task.Busy] {
+          on data2event.command(cmd): {} // ignore while busy
+        }
+        on data2event.wrapped(data): socket.send(data);
+        on socket.message(ws,msg): data2event.unwrap(msg);
+        on socket.disconnect(ws,msg): {
+          //data_t foo = $log ("Command disconnect=%j", msg)$;
+          data_t foo = $(log o "Command disconnect=~s\n" msg)$;
+          connect.disconnect(msg);
+          state = State.Listening;
+        }
+      }
+    }
+  }
+
+  component Command_data2event {
+    provides Icommand_data2event command_data2event;
+    //behavior {}
+  }
+
+
+
+  component View_proxy {
+    provides Iview view;
+    provides Iconnect connect;
+    system {
+      View_proxy_controller controller;
+      View_data2event data2event;
+      transport.Transport_system transprt;
+
+      view <=> controller.view;
+      connect <=> controller.connect;
+      controller.data2event <=> data2event.view_data2event;
+      controller.socket <=> transprt.websocket_transport;
+    }
+  }
+
+  component View_proxy_controller {
+    provides Iview view;
+    provides Iconnect connect;
+    requires transport.Iwebsocket socket;
+    requires Iview_data2event data2event;
+
+    behavior {
+      config_t config;
+      enum State { Idle, Listening, Connected };
+      State state = State.Idle;
+
+      [!state.Idle] {
+        on socket.error(ws, e): {}
+      }
+      [state.Idle] {
+        on connect.setup(config): { socket.listen(config); }
+        on socket.error(ws, e): { connect.error(e); }
+        on socket.listening(): { connect.listening(); state = State.Listening; }
+      }
+      [state.Listening] {
+        on socket.connected(ws): { connect.connected(); state = State.Connected; }
+      }
+      [!state.Connected] {
+        on view.notify(notification): {}
+        on view.update(data): {}
+        on view.go_to(selection): {}
+        on view.go_to_index(selection): {}
+      }
+      [state.Connected] {
+        on view.notify(notification): {
+          data2event.wrap ($"notify"$, notification);
+        }
+        on view.update(data): data2event.wrap($"data"$, data);
+        on view.go_to(selection): data2event.wrap($"go_to"$, selection);
+        on view.go_to_index(selection): data2event.wrap($"go_to_index"$, selection);
+        on socket.message(ws,msg): data2event.unwrap(msg);
+        on data2event.wrapped(data): socket.send(data);
+        on data2event.request(request): view.request(request);
+        on data2event.selected(selection): view.selected(selection);
+        on data2event.index_selected(selection): view.index_selected(selection);
+        on data2event.back(): view.back();
+        on data2event.event(event): view.event(event);
+        on socket.disconnect(ws,msg): {
+          //data_t foo = $log ("View disconnect=%j", msg)$;
+          data_t foo = $(log o "View disconnect=~s\n" msg)$;
+          connect.disconnect(msg);
+          state = State.Listening;
+        }
+      }
+    }
+  }
+
+  component View_data2event {
+    provides Iview_data2event view_data2event;
+    //behavior {}
+  }
+
+  component Editor_proxy {
+    provides Ieditor editor;
+    provides Iconnect connect;
+    system {
+      Editor_proxy_controller controller;
+      Editor_data2event data2event;
+      transport.Transport_system transprt;
+
+      editor <=> controller.editor;
+      connect <=> controller.connect;
+      controller.data2event <=> data2event.editor_data2event;
+      controller.socket <=> transprt.websocket_transport;
+    }
+  }
+
+  component Editor_proxy_controller {
+    provides Ieditor editor;
+    provides Iconnect connect;
+    requires transport.Iwebsocket socket;
+    requires Ieditor_data2event data2event;
+
+    behavior {
+      config_t config;
+      enum State { Idle, Listening, Connected };
+      State state = State.Idle;
+
+      [!state.Idle]
+        on socket.error(ws, e): {}
+
+      [state.Idle] {
+        on connect.setup(config): { socket.listen(config); }
+        on socket.error(ws, e): { connect.error(e); }
+        on socket.listening(): { connect.listening(); state = State.Listening; }
+      }
+      [state.Listening] {
+        on socket.connected(ws): { connect.connected(); state = State.Connected; }
+      }
+      [!state.Connected] {
+        on editor.go_to_location(selection): {}
+      }
+      [state.Connected] {
+        on editor.go_to_location(selection): data2event.wrap($"go_to"$, selection);
+        on socket.message(ws,msg): data2event.unwrap(msg);
+        on data2event.wrapped(data): socket.send(data);
+        on socket.disconnect(ws,msg): { connect.disconnect(msg); state = State.Listening; }
+      }
+    }
+  }
+
+  component Editor_data2event {
+    provides Ieditor_data2event editor_data2event;
+    // behavior {}
+  }
+
+  component Verify2event {
+    provides Iverify2event verify;
+    //behavior {}
+  }
+
+  component Routing {
+    provides Irouting routing;
+    //behavior {}
+  }
+
+  component Data {
+    provides Idata data;
+    //behavior {}
+  }
+
+  component Store_controller {
+    provides Istore store;
+    requires Idzn dz;
+    requires Idata data;
+    behavior {
+      enum State {Idle, Active, Busy};
+      State state = State.Idle;
+
+      [state.Idle] on store.setup(): state = State.Active;
+      [state.Active] {
+        on store.command(command): {
+          data.store_command(command);
+          dz.command(command);
+          state = State.Busy;
+        }
+        on store.request(notification): {
+          data_t tmp;
+          data.request(notification, tmp);
+          store.update(tmp);
+        }
+        on store.back(): {
+          command_t command;
+          data.get_command_simulate_back(command);
+          dz.command(command);
+          state = State.Busy;
+        }
+        on store.event(event): {
+          command_t command;
+          data.get_command_simulate(event, command);
+          dz.command(command);
+          state = State.Busy;
+        }
+        on store.get_selection(selection): {
+          bool valid = data.get_selection(selection);
+          reply(valid);
+        }
+        on store.get_location(selection, loc): {
+          data.get_location(selection, loc);
+        }
+      }
+      [state.Busy] {
+        on dz.result(data): {
+          data_t tmp;
+          data.store_result(data, tmp);
+          store.result(tmp);
+          state = State.Active;
+        }
+      }
+    }
+  }
+
+  component Dzn_proxy {
+    provides Idzn dz;
+    //behavior {}
+  }
+
+  component Store {
+    provides Istore store;
+    system {
+      Store_controller controller;
+      Dzn_proxy dz;
+      Data data;
+      store <=> controller.store;
+      controller.dz <=> dz.dz;
+      controller.data <=> data.data;
+    }
+  }
+
+
+  component Daemon {
+    provides Istart start;
+    system {
+      Daemon_controller controller;
+      Store store;
+      Command_proxy command_proxy;
+      View_proxy view_proxy;
+      Editor_proxy editor_proxy;
+      Routing routing;
+
+      start <=> controller.start;
+      controller.store <=> store.store;
+
+      controller.view <=> view_proxy.view;
+      controller.vconnect <=> view_proxy.connect;
+
+      controller.command <=> command_proxy.command;
+      controller.iconnect <=> command_proxy.connect;
+
+      controller.editor <=> editor_proxy.editor;
+      controller.econnect <=> editor_proxy.connect;
+
+      controller.routing <=> routing.routing;
+    }
+  }
+
+}

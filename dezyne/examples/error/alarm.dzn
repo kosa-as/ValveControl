@@ -1,0 +1,75 @@
+// Dezyne --- Dezyne command line tools
+// Copyright © 2016 Jan Nieuwenhuizen <janneke@gnu.org>
+// Copyright © 2016 Paul Hoogendijk <paul.hoogendijk@verum.com>
+// Copyright © 2016,2022 Rutger van Beusekom <rutger.van.beusekom@verum.com>
+//
+// This file is part of Dezyne.
+//
+// Dezyne is free software: you can redistribute it and/or modify it
+// under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// Dezyne is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public
+// License along with Dezyne.  If not, see <http://www.gnu.org/licenses/>.
+//
+// Commentary:
+//
+// This model represents an incorrect alarm that forgets to turn off the
+// siren.
+//
+// Code:
+
+import ../alarm-interfaces.dzn;
+
+component alarm
+{
+  provides iconsole console;
+  requires isiren siren;
+  requires isensor sensor;
+  requires itimer timer;
+  requires ipin auth;
+
+  behavior
+  {
+    bool grace_period = false;
+
+    [console.state.Disarmed] {
+      on console.arm(pin): {
+        bool valid = auth.valid(pin);
+        if(valid)
+          timer.set();
+        reply(valid);
+      }
+      on console.disarm(pin): reply(false);
+    }
+    [!console.state.Disarmed] {
+      on console.arm(pin): reply(false);
+      on console.disarm(pin): {
+        bool valid = auth.valid(pin);
+        if(valid) {
+          grace_period = false;
+          timer.cancel();
+        }
+        reply(valid);
+      }
+    }
+    on timer.timeout(): {
+      if(!grace_period) {
+        timer.set();
+        if(sensor.value()) {
+          grace_period = true;
+          console.detected();
+        }
+      } else {
+        grace_period = false;
+        siren.enable();
+      }
+    }
+  }
+}

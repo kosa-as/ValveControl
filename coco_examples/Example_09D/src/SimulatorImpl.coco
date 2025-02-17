@@ -1,0 +1,22 @@
+// Component model of valve simulator
+import unqualified ValveHAL
+
+@runtime(.MultiThreaded)
+component SimulatorImpl {
+  val client : Provided<ValveHAL>
+
+  machine {
+    state Ready {
+      client.move(_, _) = {
+        setNextState(Moving);
+        return true;
+      }
+      client.isMoving() = false
+    }
+
+    state Moving {
+      after(seconds(10)) = setNextState(Ready)
+      client.isMoving() = true
+    }
+  }
+}

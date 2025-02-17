@@ -1,0 +1,10 @@
+interface ValveHAL {
+  enum Moves {Open, Close};
+  extern MovesEnum $Moves$;
+  in void move(MovesEnum target);
+
+  behavior
+  {
+    on move: {}
+  }
+}

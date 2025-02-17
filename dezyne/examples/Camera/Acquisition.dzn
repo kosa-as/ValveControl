@@ -1,0 +1,115 @@
+// Dezyne --- Dezyne command line tools
+//
+// Copyright © 2015, 2022, 2023 Rutger van Beusekom <rutger@dezyne.org>
+// Copyright © 2019, 2021 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+//
+// This file is part of Dezyne.
+//
+// Dezyne is free software: you can redistribute it and/or modify it
+// under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// Dezyne is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public
+// License along with Dezyne.  If not, see <http://www.gnu.org/licenses/>.
+//
+// Commentary:
+//
+// Code:
+
+interface ISensor
+{
+  in void prepare();
+  in void acquire();
+  in void cancel();
+  out void image();
+
+  behavior
+  {
+    enum State {Idle, Ready, Acquire};
+    State state = State.Idle;
+
+    on cancel: state = State.Idle;
+
+    [state.Idle] on prepare: state = State.Ready;
+    [state.Ready] on acquire: state = State.Acquire;
+    [state.Acquire] on inevitable: {state = State.Idle; image;}
+  }
+}
+
+component CMOS
+{
+  provides ISensor port;
+}
+
+interface IMemory
+{
+  in void store();
+  behavior
+  {
+    on store:{}
+  }
+}
+
+component Memory
+{
+  provides IMemory port;
+}
+
+interface IAcquisition
+{
+  in void prepare();
+  in void cancel();
+  in void acquire();
+
+  out void image();
+
+  behavior
+  {
+    enum State {Idle, Ready, Acquiring};
+    State state = State.Idle;
+
+    on prepare: [state.Idle] state = State.Ready;
+    on acquire: [state.Ready] state = State.Acquiring;
+    on cancel: {state = State.Idle;}
+    on inevitable: [state.Acquiring] {state = State.Idle; image;}
+  }
+}
+
+component Acquire
+{
+  provides IAcquisition port;
+  requires IMemory memory;
+  requires ISensor sensor;
+
+  behavior
+  {
+    on port.cancel(): sensor.cancel();
+
+    on port.prepare(): sensor.prepare();
+    on port.acquire(): sensor.acquire();
+    on sensor.image(): {memory.store(); port.image();}
+  }
+}
+
+component Acquisition
+{
+  provides IAcquisition port;
+
+  system
+  {
+    Acquire acquire;
+    Memory memory;
+    CMOS sensor;
+
+    port <=> acquire.port;
+
+    acquire.memory <=> memory.port;
+    acquire.sensor <=> sensor.port;
+  }
+}

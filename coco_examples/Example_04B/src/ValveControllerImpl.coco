@@ -1,0 +1,42 @@
+import unqualified ValveController
+import unqualified ValveHAL
+
+@runtime(.MultiThreaded)
+component ValveControllerImpl {
+  val client : Provided<ValveController>
+  val hal : Required<ValveHAL>
+
+  machine {
+    client.isOpen() = false
+    client.isClosed() = false
+
+    state Initial {
+      client.setup(settings : ValveParameters) = if (hal.setParameters(settings)) {
+        setNextState(Unknown);
+        return true;
+      } else {
+        return false;
+      }
+    }
+
+    // Valve position unknown until the first move request is received
+    state Unknown {
+      client.open() = setNextState(Opened)
+      client.close() = setNextState(Closed)
+    }
+
+    state Opened {
+      entry() = hal.move(.Open)
+      client.isOpen() = true
+      client.open() = {}
+      client.close() = setNextState(Closed)
+    }
+
+    state Closed {
+      entry() = hal.move(.Close)
+      client.isClosed() = true
+      client.open() = setNextState(Opened)
+      client.close() = {}
+    }
+  }
+}

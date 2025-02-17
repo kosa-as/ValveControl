@@ -1,0 +1,92 @@
+
+extern PIN $integer$;
+
+interface iconsole
+{
+  in bool arm(PIN pin);
+  in bool disarm(PIN pin);
+
+  out void detected();
+
+  behavior
+  {
+    enum State {Disarmed, Armed, Triggered};
+    State state = State.Disarmed;
+
+    [state.Disarmed] {
+      on arm: {
+        state = State.Armed;
+        reply(true);
+      }
+      on arm: {
+        reply(false);
+      }
+      on disarm: reply(false);
+    }
+    [state.Armed || state.Triggered] {
+      on arm: reply(false);
+      on disarm: {
+        state = State.Disarmed;
+        reply(true);
+      }
+      on disarm: {
+        reply(false);
+      }
+    }
+    [state.Armed] on optional: {
+      state = State.Triggered;
+      detected;
+    }
+  }
+}
+
+interface ipin
+{
+  in bool valid(PIN pin);
+
+  behavior
+  {
+    on valid: reply(true);
+    on valid: reply(false);
+  }
+}
+
+interface isensor
+{
+  in bool value();
+  behavior
+  {
+    on value: reply(true);
+    on value: reply(false);
+  }
+}
+
+interface isiren
+{
+  in void disable();
+  in void enable();
+
+  behavior
+  {
+    bool enabled = false;
+    [enabled] on disable: enabled = false;
+    [!enabled] on enable: enabled = true;
+  }
+}
+
+interface itimer
+{
+  in void set();
+  in void cancel();
+
+  out void timeout();
+
+  behavior
+  {
+    bool idle = true;
+
+    on set: idle = false;
+    on cancel: idle = true;
+    [!idle] on inevitable: {idle = true; timeout;}
+  }
+}

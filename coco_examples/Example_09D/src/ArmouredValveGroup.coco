@@ -1,0 +1,16 @@
+import unqualified Armour
+import unqualified ArmourImpl
+import unqualified TestValveGroup
+
+@runtime(.MultiThreaded)
+component ArmouredValveGroup {
+  val client : Provided<Armour>
+
+  val armour : ArmourImpl
+  val testValve : TestValveGroup
+
+  init() = {
+    connect(client, armour.client);
+    connect(armour.valve, testValve.client);
+  }
+}

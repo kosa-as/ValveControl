@@ -1,0 +1,23 @@
+interface ValveController {
+  in void setup();
+  in void open();
+  in void close();
+
+  behavior 
+  {
+    enum valveState{Init, Operational};
+    valveState state = valveState.Init;
+    [state.Init]
+    {
+      on setup: state=valveState.Operational;
+    }
+
+    [state.Operational]
+    {
+      on open: {}
+      on close: {}
+    }
+
+  }
+
+}

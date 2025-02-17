@@ -1,0 +1,15 @@
+Binary Dezyne distribution
+
+Find more information here:
+
+   https://doc.verum.com/
+   https://doc.verum.com/documentation.html
+   https://doc.verum.com/dezyne/manual/dezyne/html_node/Binary-Installation.html
+
+Try:
+
+  ./dzn hello
+  ./dzn --verbose verify examples/hello.dzn
+  ./dzn code --language=c++ examples/hello.dzn
+
+See also NEWS and the examples directory.

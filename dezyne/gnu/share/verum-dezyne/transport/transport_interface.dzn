@@ -1,0 +1,129 @@
+// Verum-Dezyne --- An IDE for Dezyne
+//
+// Copyright © 2019 Rob Wieringa <Rob.Wieringa@verum.com>
+// Copyright © 2020 Paul Hoogendijk <paul.hoogendijk@verum.com>
+//
+// This file is part of Verum-Dezyne.
+//
+// Verum-Dezyne is property of Verum Software Tools BV <support@verum.com>.
+// All rights reserved.
+
+// Copyright © 2017 Jan Nieuwenhuizen <janneke@gnu.org>
+
+// This file is part of dzn.websocket
+
+// dzn.websocket is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License as
+// published by the Free Software Foundation; either version 3 of the
+// License, or (at your option) any later version.
+
+// dzn.websocket is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with dzn.websocket.  If not, see
+// <http://www.gnu.org/licenses/>.
+
+namespace transport {
+
+  extern config_t $*unspecified*$;
+  extern data_t $*unspecified*$;
+  extern error_t $*unspecified*$;
+  extern message_t $*unspecified*$;
+  extern url_t $*unspecified*$;
+  extern websocket_t $*unspecified*$;
+
+  interface Iserialize {
+    in void pack(data_t data);
+    out void message(message_t msg);
+
+    in void unpack(message_t msg);
+    out void data(data_t data);
+
+    in void ping();
+    out void pong();
+
+    behavior {
+      enum STATE {IDLE, PACK, UNPACK, PING};
+      STATE state = STATE.IDLE;
+      on pack: state = STATE.PACK;
+      on unpack: state = STATE.UNPACK;
+      on ping: state = STATE.PING;
+      on inevitable: {
+        [state.PACK] message;
+        [state.UNPACK] data;
+        [state.PING] pong;
+      }
+    }
+  }
+
+  interface Iwebsocket {
+    in void listen (config_t config);
+    in void open (url_t url);
+    in void close ();
+    in void send (message_t msg);
+    in void get (out websocket_t ws);
+
+    out void listening ();
+    out void connected (websocket_t ws);
+    out void error (websocket_t ws, error_t e);
+    out void message (websocket_t ws, message_t msg);
+    out void disconnect (websocket_t ws, message_t msg);
+    behavior {
+      enum State {Closed, Opening, Open, Closing};
+      State state = State.Closed;
+      bool listening_ = false;
+
+      //on optional: message;
+
+      [state.Closed] {
+        on listen: { listening; state = State.Opening; listening_ = true; }
+        on listen: { error; }
+        on open: { state = State.Opening; listening_ = false; }
+        on get: illegal;
+        on close: {}
+        on send: illegal;
+      }
+      [state.Opening] {
+        on inevitable: { state = State.Open; connected; }
+        on close: { state = State.Closed; listening_ = false;}
+        on listen: illegal;
+        on get: illegal;
+        on send: illegal;
+        on open: illegal;
+        on inevitable: {
+          [!listening_] { error; state = State.Closed; }
+        }
+      }
+      [state.Open] {
+        on get: {}
+        on send: {}
+        on optional: message;
+        on close: {
+          disconnect;
+          if (listening_) state = State.Opening; else state = State.Closed;
+        }
+        on inevitable: {
+          disconnect;
+          if (listening_) state = State.Opening; else state = State.Closed;
+        }
+        on listen: illegal;
+        on open: illegal;
+        on inevitable: {
+          [listening_]  { error; }
+          [!listening_] { error; state = State.Closing; }
+        }
+      }
+      [state.Closing] {
+        on listen: illegal;
+        on open: illegal;
+        on get: illegal;
+        on close: illegal;
+        on send: illegal;
+        on inevitable: { disconnect; state = State.Closed; }
+      }
+    }
+  }
+}

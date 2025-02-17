@@ -1,0 +1,30 @@
+prefix=/gnu/store/rva3m7b45la5ia7696yhjk768a96chld-guile-mingw-3.0.8-6.cc45597
+exec_prefix=/gnu/store/rva3m7b45la5ia7696yhjk768a96chld-guile-mingw-3.0.8-6.cc45597
+bindir=/gnu/store/rva3m7b45la5ia7696yhjk768a96chld-guile-mingw-3.0.8-6.cc45597/bin
+libdir=/gnu/store/rva3m7b45la5ia7696yhjk768a96chld-guile-mingw-3.0.8-6.cc45597/lib
+includedir=/gnu/store/rva3m7b45la5ia7696yhjk768a96chld-guile-mingw-3.0.8-6.cc45597/include
+datarootdir=/gnu/store/rva3m7b45la5ia7696yhjk768a96chld-guile-mingw-3.0.8-6.cc45597/share
+datadir=/gnu/store/rva3m7b45la5ia7696yhjk768a96chld-guile-mingw-3.0.8-6.cc45597/share
+pkgdatadir=/gnu/store/rva3m7b45la5ia7696yhjk768a96chld-guile-mingw-3.0.8-6.cc45597/share/guile
+pkgincludedir=/gnu/store/rva3m7b45la5ia7696yhjk768a96chld-guile-mingw-3.0.8-6.cc45597/include/guile
+
+sitedir=/gnu/store/rva3m7b45la5ia7696yhjk768a96chld-guile-mingw-3.0.8-6.cc45597/share/guile/site/3.0
+extensiondir=/gnu/store/rva3m7b45la5ia7696yhjk768a96chld-guile-mingw-3.0.8-6.cc45597/lib/guile/3.0/extensions
+siteccachedir=/gnu/store/rva3m7b45la5ia7696yhjk768a96chld-guile-mingw-3.0.8-6.cc45597/lib/guile/3.0/site-ccache
+libguileinterface=6:0:5
+
+# Actual name of the 'guile' and 'guild' programs.  This is
+# particularly useful when '--program-transform-name' or similar has
+# been used.
+guild=${bindir}/guild
+guile=${bindir}/guile
+
+Name: GNU Guile
+Description: GNU's Ubiquitous Intelligent Language for Extension
+Version: UNKNOWN
+Libs: -L${libdir} -lguile-3.0 -L/gnu/store/mcryrwk9fcw5jhnrfg932ch67izc8qz9-libgc-mingw-8.0.4/lib -L/gnu/store/f0g2nhfycxqxij1w1g9nwlabgxyjifp8-libatomic-ops-mingw-7.6.10/lib -latomic_ops -lgc
+Libs.private:    -L/gnu/store/yg0dvdczrd1rv251s8galqz336m2bl10-libffi-3.3/lib -lffi	\
+  -lunistring -lws2_32  -lm -liconv  -lws2_32		\
+  -lws2_32 -lws2_32 -lws2_32  		\
+  
+Cflags: -I${pkgincludedir}/3.0  -I/gnu/store/mcryrwk9fcw5jhnrfg932ch67izc8qz9-libgc-mingw-8.0.4/include

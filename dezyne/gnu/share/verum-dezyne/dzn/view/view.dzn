@@ -1,0 +1,444 @@
+// Verum-Dezyne --- An IDE for Dezyne
+//
+// Copyright © 2020 Rob Wieringa <Rob.Wieringa@verum.com>
+// Copyright © 2020,2021 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+// Copyright © 2020 Paul Hoogendijk <paul.hoogendijk@verum.com>
+// Copyright © 2021,2023 Rutger van Beusekom <rutger.van.beusekom@verum.com>
+//
+// This file is part of Verum-Dezyne.
+//
+// Verum-Dezyne is property of Verum Software Tools BV <support@verum.com>.
+// All rights reserved.
+
+import ../transport/transport_interface.dzn;
+import ../transport/transport.dzn;
+
+namespace view {
+
+  extern data_t $*unspecified*$;
+  extern event_t $*unspecified*$;
+  extern error_t $*unspecified*$;
+  extern index_t $*unspecified*$;
+  extern instance_t $*unspecified*$;
+  extern label_t $*unspecified*$;
+  extern notification_t $*unspecified*$;
+  extern selection_t $*unspecified*$;
+  extern url_t $*unspecified*$;
+
+  interface Idaemon_data2event {
+    in void wrap(label_t label, data_t data);
+    out void envelope(data_t data);
+
+    in void data2event(data_t data);
+
+    out void notify(notification_t notification);
+    out void data(data_t data);
+    out void go_to(selection_t selection);
+    out void go_to_index(selection_t selection);
+    out void go_to_instance(selection_t selection);
+
+    out void error(error_t e);
+
+    behavior {
+      on wrap: envelope;
+      on data2event: notify;
+      on data2event: data;
+      on data2event: go_to;
+      on data2event: go_to_index;
+      on data2event: go_to_instance;
+      on data2event: error;
+    }
+  }
+
+  component Daemon_data2event {
+    provides Idaemon_data2event data2event;
+    //behavior {}
+  }
+
+  interface Icontrol {
+    in void setup();
+    out void error(error_t e);
+
+    in void test();
+
+    behavior {
+      enum State {Idle, Active, Error};
+      State state = State.Idle;
+      on optional: { error; state = State.Error; }
+      on test: {}
+      on test: { error; state = State.Error; }
+      [state.Idle] {
+        on setup: state = State.Active;
+      }
+      [state.Active] {
+        on setup: illegal;
+      }
+      [state.Error] {
+        on setup: illegal;
+      }
+    }
+  }
+
+  component View_controller {
+    provides Icontrol control;
+    requires Idaemon daemon;
+    requires Iwidget widget;
+    behavior {
+      enum State {Idle, Setup, Active, Error};
+      State state = State.Idle;
+
+      [state.Idle] {
+        on control.setup(): {
+          daemon.setup();
+          state = State.Setup;
+        }
+        on control.test(): {} // wait for Active
+      }
+      [state.Setup] {
+        on daemon.connected(): {
+          state = State.Active;
+          widget.origin ();
+        }
+        on control.test(): {} // wait for Active
+      }
+      [state.Active] {
+        // send events from view widgets to daemon
+        on widget.origin_label(label): daemon.request(label);
+
+        on widget.selected(selection): daemon.selected(selection);
+        on widget.request(notification): daemon.request(notification);
+        on widget.select_instance(selection): daemon.select_instance(selection);
+        on widget.index_selected(selection): daemon.index_selected(selection);
+        on widget.back(): daemon.back();
+        on widget.event(event): daemon.event(event);
+
+        // send events from daemon to view widgets
+        on daemon.data(data): widget.draw(data);
+        on daemon.go_to(selection): widget.go_to(selection);
+        on daemon.go_to_index(selection): widget.go_to_index(selection);
+        on daemon.go_to_instance(selection): widget.go_to_instance(selection);
+        on daemon.notify (notification): widget.notify(notification);
+        on daemon.error(e): { state = State.Error; control.error(e); }
+
+        on control.test(): daemon.test();
+      }
+      [!state.Idle] {
+        on daemon.disconnect(): {
+          control.error($'daemon disconnected'$);
+          widget.stop();
+          state = State.Error;
+        }
+      }
+      [state.Error] {
+        on control.test(): {} // ignore
+      }
+    }
+  }
+
+  component Daemon_proxy_controller {
+    provides Idaemon daemon;
+    requires transport.Iwebsocket transprt;
+    requires Idaemon_data2event data2event;
+
+    behavior {
+      enum State {Idle, Setup, Active, Closing, Error};
+      State state = State.Idle;
+      url_t url;
+
+      [state.Idle] {
+        on daemon.setup(): {state = State.Setup; transprt.open(url);}
+        on transprt.error(ws, e): {data_t foo = $console.log ('disconnect:%j', e)$;}
+      }
+      [state.Setup] {
+        on transprt.connected (ws): {state = State.Active; daemon.connected();}
+        on transprt.error(ws, e): {state = State.Idle; daemon.disconnect();}
+        on daemon.test(): {} // wait for Active
+      }
+      [state.Active] {
+        on transprt.error (ws, e): {state = State.Closing;}
+        on transprt.disconnect (ws, msg): {state = State.Idle; daemon.disconnect();}
+
+        on daemon.test(): {}
+
+        // wrap events from provided daemon port to send through transprt
+        on daemon.selected(selection): data2event.wrap($'selected'$, selection);
+        on daemon.request(notification): data2event.wrap($'request'$, notification);
+        on daemon.select_instance(selection): data2event.wrap($'select_instance'$, selection);
+        on daemon.index_selected(selection): data2event.wrap($'index_selected'$, selection);
+        on daemon.back(): data2event.wrap($'back'$, ${}$);
+        on daemon.event(event): data2event.wrap($'event'$, event);
+
+        // wrap -> envelope
+        on data2event.envelope(msg): transprt.send(msg);
+
+        // process msg from daemon
+        // data2event -> ...
+        on transprt.message(ws, data): data2event.data2event(data);
+        //   ... -> event, or
+        on data2event.data(data): daemon.data(data);
+        on data2event.go_to(selection): daemon.go_to(selection);
+        on data2event.go_to_index(selection): daemon.go_to_index(selection);
+        on data2event.go_to_instance(selection): daemon.go_to_instance(selection);
+        on data2event.notify (notification): daemon.notify(notification);
+        //   ... -> error
+        on data2event.error(e): { state = State.Error; daemon.error(e); }
+
+      }
+      [state.Closing] {
+        on transprt.disconnect (ws, msg): {state = State.Idle; daemon.disconnect();}
+        on daemon.test(): {} // wait for Active
+        on daemon.selected(selection): {}
+        on daemon.request(notification): {}
+        on daemon.select_instance(selection): {}
+        on daemon.index_selected(selection): {}
+        on daemon.back(): {}
+        on daemon.event(event): {}
+      }
+      [state.Error] {
+        on transprt.disconnect (ws, msg): {}
+        on daemon.test(): {} //moeilijk
+        on transprt.message(ws, data): {}
+        on transprt.error (ws, e): {}
+      }
+    }
+  }
+
+  interface Idaemon {
+    in void setup();
+    in void test();
+    out void connected();
+    out void disconnect();
+
+    out void notify(notification_t notification);
+    out void data(data_t data);
+    out void go_to(selection_t selection);
+    out void go_to_index(selection_t selection);
+    out void go_to_instance(selection_t selection);
+
+    out void error(error_t e);
+
+    // new events
+    in void selected(selection_t selection);
+    in void request(notification_t notification);
+    in void select_instance(selection_t selection);
+    in void index_selected(selection_t selection);
+    in void back();
+    in void event(event_t event);
+
+    behavior {
+      enum State {Idle, Setup, Active, Error};
+      State state = State.Idle;
+
+      [state.Idle] {
+        on setup: state = State.Setup;
+        on test: illegal;
+        on selected: illegal;
+        on request: illegal;
+        on select_instance: illegal;
+        on index_selected: illegal;
+        on back: illegal;
+        on event: illegal;
+      }
+      [state.Setup] {
+        on setup: illegal;
+        on inevitable: {state = State.Active; connected;}
+        on inevitable: {state = State.Idle;  disconnect;}
+        on test: {}
+        on selected: illegal;
+        on request: illegal;
+        on select_instance: illegal;
+        on index_selected: illegal;
+        on back: illegal;
+        on event: illegal;
+      }
+      [state.Active] {
+        on setup: illegal;
+        on optional: notify;
+        on optional: data;
+        on optional: go_to;
+        on optional: go_to_index;
+        on optional: go_to_instance;
+        on optional: { error; state = State.Error; }
+        on optional: { disconnect; state = State.Idle; }
+
+        on selected: {}
+        on request: {}
+        on select_instance: {}
+        on index_selected: {}
+        on back: {}
+        on event: {}
+        on test: {}
+      }
+      [state.Error] {
+        on setup: illegal;
+        on test: {}
+        on selected: illegal;
+        on request: illegal;
+        on select_instance: illegal;
+        on index_selected: illegal;
+        on back: illegal;
+        on event: illegal;
+      }
+    }
+  }
+
+  component Daemon_proxy {
+    provides Idaemon daemon;
+
+    system {
+      Daemon_proxy_controller daemon_proxy;
+      transport.Transport_system transprt;
+      Daemon_data2event data2event;
+
+      daemon <=> daemon_proxy.daemon;
+      daemon_proxy.data2event <=> data2event.data2event;
+      daemon_proxy.transprt <=> transprt.websocket_transport;
+    }
+  }
+
+  interface Iwidget {
+    in void notify(notification_t notification);
+    out void request(notification_t notification);
+
+    in void draw(data_t data);
+    in void redraw();
+
+    out void selected(selection_t selection);
+    in void go_to(selection_t selection);
+
+    out void select_instance(selection_t selection);
+    in void go_to_instance(selection_t selection);
+
+    out void index_selected(selection_t selection);
+    in void go_to_index(selection_t selection);
+
+    out void back();
+    out void event(event_t event);
+
+    in void stop();
+
+    in void origin();
+    out void origin_label(label_t label);
+
+    behavior {
+      on notify: {}
+      on draw: {}
+      on redraw: {}
+      on go_to: {}
+      on go_to_index: {}
+      on go_to_instance: {}
+      on stop: {}
+      on origin: {}
+      on origin: origin_label;
+      on origin: {origin_label; origin_label;}
+      on optional: request;
+      on optional: selected;
+      on optional: select_instance;
+      on optional: index_selected;
+      on optional: back;
+      on optional: event;
+    }
+  }
+
+  component Trace_widget {
+    provides Iwidget widget;
+    //behavior {}
+  }
+
+  component State_widget {
+    provides Iwidget widget;
+    //behavior {}
+  }
+
+  component System_widget {
+    provides Iwidget widget;
+    //behavior {}
+  }
+
+  component Mux_widget {
+    provides Iwidget widget;
+    requires Iwidget left;
+    requires Iwidget right;
+
+    behavior {
+      on widget.notify(notification): {
+        left.notify(notification);
+        right.notify(notification);
+      }
+      on widget.draw(data): {
+        left.draw(data);
+        right.draw(data);
+      }
+      on widget.redraw(): {
+        left.redraw();
+        right.redraw();
+      }
+      on widget.go_to(selection): {
+        left.go_to(selection);
+        right.go_to(selection);
+      }
+      on widget.go_to_index(selection): {
+        left.go_to_index(selection);
+        right.go_to_index(selection);
+      }
+      on widget.go_to_instance(selection): {
+        left.go_to_instance(selection);
+        right.go_to_instance(selection);
+      }
+      on widget.stop(): { left.stop(); right.stop(); }
+      on widget.origin(): { left.origin(); right.origin(); }
+      on left.origin_label(label): widget.origin_label(label);
+      on right.origin_label(label): widget.origin_label(label);
+      on left.request(notification), right.request(notification): widget.request(notification);
+      on left.selected(selection), right.selected(selection): widget.selected(selection);
+      on left.select_instance(selection), right.select_instance(selection): widget.select_instance(selection);
+      on left.index_selected(instance), right.index_selected(instance): widget.index_selected(instance);
+      on left.back(), right.back(): widget.back();
+      on left.event(event), right.event(event): widget.event(event);
+    }
+  }
+
+  component Widget {
+    provides Iwidget widget;
+
+    system {
+      /*
+        Mux_widget mux;
+        Mux_widget mux2;
+        Trace_widget trace;
+        State_widget state;
+        System_widget sys;
+
+        widget <=> mux.widget;
+        mux.left <=> trace.widget;
+        mux.right <=> mux2.widget;
+        mux2.left <=> state.widget;
+        mux2.right <=> sys.widget;
+      */
+      Mux_widget mux;
+      Mux_widget mux2;
+
+      System_widget sys;
+      Trace_widget trace;
+      State_widget state;
+      widget <=> mux.widget;
+      mux.left <=> trace.widget;
+      mux.right <=> mux2.widget;
+      mux2.left <=> sys.widget;
+      mux2.right <=> state.widget;
+    }
+  }
+
+  component View {
+    provides Icontrol control;
+    system {
+      View_controller controller;
+      Daemon_proxy daemon;
+      Widget widget;
+
+      control <=> controller.control;
+      controller.daemon <=> daemon.daemon;
+      controller.widget <=> widget.widget;
+    }
+  }
+}

@@ -1,0 +1,48 @@
+import unqualified Armour
+import unqualified ValveController
+import unqualified ValveHAL
+
+@runtime(.MultiThreaded)
+component ArmourImpl {
+  val client : Provided<Armour>
+  val valve : Required<ValveController>
+
+  machine {
+    client.isOpen() = valve.isOpen()
+    client.isClosed() = valve.isClosed()
+    client.open() = false
+    client.close() = false
+    client.setup(_) = false
+
+    state Initial {
+      client.setup(settings : ValveParameters) = {
+        val result : Bool = valve.setup(settings);
+        if (result) setNextState(Ready);
+        return result;
+      }
+    }
+
+    state Ready {
+      client.open() = {
+        valve.open();
+        setNextState(Moving);
+        return true;
+      }
+      client.close() = {
+        valve.close();
+        setNextState(Moving);
+        return true;
+      }
+    }
+
+    state Moving {
+      client.isOpen() = false
+      client.isClosed() = false
+
+      valve.moveEnded(result) = {
+        client.moveEnded(result);
+        setNextState(Ready);
+      }
+    }
+  }
+}

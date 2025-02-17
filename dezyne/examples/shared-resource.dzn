@@ -1,0 +1,90 @@
+// Dezyne --- Dezyne command line tools
+//
+// Copyright © 2024 Rutger van Beusekom <rutger@dezyne.org>
+//
+// This file is part of Dezyne.
+//
+// Dezyne is free software: you can redistribute it and/or modify it
+// under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// Dezyne is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public
+// License along with Dezyne.  If not, see <http://www.gnu.org/licenses/>.
+//
+// Commentary:
+//
+// This example shows how to share a resource using non-determinism in
+// the interface to discover the actual component state without
+// having any state variables in the component itself.
+//
+// Code:
+
+interface iclaim
+{
+  in bool claim ();
+  in void release ();
+  behavior
+  {
+    bool claimed = false;
+    on claim: {claimed = true; reply (true);}
+    on claim: {claimed = false; reply (false);}
+    [claimed] on release: claimed = false;
+  }
+}
+
+component claim
+{
+  provides iclaim left;
+  provides iclaim right;
+  behavior
+  {
+    on left.claim (), right.claim (): reply (!left.claimed && !right.claimed);
+    on left.release (), right.release (): {}
+  }
+}
+
+interface iclient
+{
+  in bool start ();
+  in void stop ();
+  behavior
+  {
+    bool idle = true;
+    [idle] on start: {idle = false; reply (true);}
+    [idle] on start: reply (false);
+    [!idle] on stop: idle = true;
+  }
+}
+
+component user
+{
+  provides iclient client;
+  requires iclaim resource;
+  behavior
+  {
+    on client.start (): reply (resource.claim ());
+    on client.stop (): resource.release ();
+  }
+}
+
+component shared_resource
+{
+  provides iclient left;
+  provides iclient right;
+  system
+  {
+    user user1;
+    user user2;
+    claim resource;
+    left <=> user1.client;
+    right <=> user2.client;
+    resource.left <=> user1.resource;
+    resource.right <=> user2.resource;
+  }
+}

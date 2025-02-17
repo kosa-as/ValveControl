@@ -1,0 +1,140 @@
+// Dezyne --- Dezyne command line tools
+//
+// Copyright © 2017, 2021 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+// Copyright © 2018, 2022 Rutger van Beusekom <rutger@dezyne.org>
+//
+// This file is part of Dezyne.
+//
+// Dezyne is free software: you can redistribute it and/or modify it
+// under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// Dezyne is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public
+// License along with Dezyne.  If not, see <http://www.gnu.org/licenses/>.
+//
+// Commentary:
+//
+// This model demonstrates the use of the blocking keyword.
+//
+// Code:
+
+interface ihello {
+  in void hello();
+  in void cruel();
+  behavior {
+    on hello: {}
+    on cruel: {}
+  }
+}
+
+interface iworld {
+  in void hello();
+  out void world();
+  behavior {
+    bool idle = true;
+    [idle] on hello: idle = false;
+    [!idle] on inevitable: {idle = true; world;}
+  }
+}
+
+
+component async_multiple_provides
+{
+  provides iworld left;
+  provides iworld right;
+  requires iworld world;
+  behavior
+  {
+    enum Side {None, Left, Right};
+    Side side = Side.None;
+    Side pending = Side.None;
+    [side.None]
+    {
+      on left.hello(): {side = Side.Left; world.hello();}
+      on right.hello(): {side = Side.Right; world.hello();}
+    }
+    [side.Left]
+    {
+      [pending.None]
+      {
+        on right.hello(): pending = Side.Right;
+        on world.world(): {side = Side.None; left.world();}
+      }
+      [pending.Right] on world.world():
+      {
+        side = pending; pending = Side.None;
+        left.world(); world.hello();
+      }
+    }
+    [side.Right]
+    {
+      [pending.None]
+      {
+        on left.hello(): pending = Side.Left;
+        on world.world(): {side = Side.None; right.world();}
+      }
+      [pending.Left] on world.world():
+      {
+        side = pending; pending = Side.None;
+        right.world(); world.hello();
+      }
+    }
+  }
+}
+
+component blocking_multiple_provides
+{
+  provides blocking ihello left;
+  provides blocking ihello right;
+  requires iworld r;
+  behavior
+  {
+    enum Side {None, Left, Right};
+    Side side = Side.None;
+    Side pending = Side.None;
+    [side.None]
+    {
+      blocking on left.hello(): {r.hello(); side = Side.Left;}
+      blocking on right.hello(): {r.hello(); side = Side.Right;}
+    }
+    [side.Left] blocking on right.hello(): pending = Side.Right;
+    [side.Right] blocking on left.hello(): pending = Side.Left;
+    on r.world():
+    {
+      if(side.Left) left.reply();
+      if(side.Right) right.reply();
+      if(!pending.None) r.hello();
+      side = pending;
+      pending = Side.None;
+    }
+  }
+}
+
+component hello_block {
+  provides blocking ihello h;
+  requires iworld w;
+  behavior {
+    on h.hello(): blocking w.hello();
+    on w.world(): h.reply ();
+    on h.cruel(): {}
+  }
+}
+
+
+component multiple_provides
+{
+  provides ihello left;
+  provides ihello right;
+  requires ihello hello;
+  behavior
+  {
+    on left.hello(): hello.hello();
+    on right.hello(): hello.hello();
+  }
+}

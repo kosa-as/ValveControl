@@ -1,0 +1,105 @@
+interface iworld {
+    in void hello();
+    out void world();
+    behavior {
+      bool idle = true;
+      [idle] on hello: idle = false;
+      [!idle] on inevitable: {idle = true; world;}
+    }
+  }
+
+
+interface iblock {
+    in void block();
+    // out void world();
+    behavior {
+        on block: {}
+    }
+}
+
+component block
+{
+    provides blocking iblock b;
+    requires iworld w;
+    behavior
+    {
+        blocking on b.block():
+        {
+            w.hello();
+        //execution waits here for b.reply()
+        //to occur as a result of w.world()
+        }
+        on w.world(): b.reply();
+    }
+}
+
+
+interface ihelloworld
+{
+  in void hello();
+  in void bye();
+  out void world();
+
+  behavior
+  {
+    bool idle = true;
+    [idle] on hello: idle = false;
+    [!idle] {
+      on bye: idle = true;
+      on optional: {idle = true; world;}
+    }
+  }
+}
+
+component collateral
+{
+    provides blocking ihelloworld h;
+    requires blocking iblock b;
+    requires iworld w;
+    behavior
+    {
+        bool idle = true;
+        [idle] blocking on h.hello(): {w.hello(); b.block(); idle = false;}
+        [!idle] on w.world(): {h.world(); idle = true;}
+    }
+}
+
+interface ihello
+{
+  in void hello();
+
+  behavior
+  {
+    on hello: {}
+  }
+}
+
+component mux
+{
+    provides blocking ihello left;
+    provides blocking ihello right;
+    requires blocking iblock b;
+    behavior
+    {
+        on left.hello(): b.block();
+        on right.hello(): b.block(); 
+    }
+}
+
+component collateral_multiple_provides
+{
+    provides blocking ihello left;
+    provides blocking ihello right;
+    requires blocking iblock block;
+    system
+    {
+        proxy l;
+        proxy r;
+        mux m;
+        left <=> l.h;
+        l.r <=> m.left;
+        right <=> r.h;
+        r.r <=> m.right;
+        m.b <=> block;
+    }
+}

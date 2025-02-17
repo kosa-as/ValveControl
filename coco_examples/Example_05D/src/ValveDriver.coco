@@ -1,0 +1,49 @@
+import unqualified ValveHAL
+
+port ValveDriver {
+  enum Status {
+    case Unknown
+    case Open
+    case Closed
+    case Moving
+    case Error
+  }
+
+  function setup(settings : ValveParameters) : Bool
+  function open() : Nil
+  function close() : Nil
+
+  outgoing signal endOfMovement(result : Status)
+
+  machine {
+    // Initial position unknown
+    var status : Status = .Unknown
+
+    state Initial {
+      setup(_) = nondet {
+        ValidParameters:
+        {
+          setNextState(Ready);
+          true
+        },
+        InvalidParameters: false,
+      }
+    }
+
+    state Ready {
+      open() = setNextState(Moving(.Open))
+      close() = setNextState(Moving(.Closed))
+    }
+
+    state Moving(target : Status) {
+      spontaneous = {
+        status = nondet {
+          MoveSucceeded: target,
+          MoveFailed: .Error,
+        };
+        endOfMovement(status);
+        setNextState(Ready);
+      }
+    }
+  }
+}

@@ -1,0 +1,237 @@
+// Verum-Dezyne --- An IDE for Dezyne
+//
+// Copyright © 2019 Rob Wieringa <Rob.Wieringa@verum.com>
+// Copyright © 2020 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+// Copyright © 2020 Paul Hoogendijk <paul.hoogendijk@verum.com>
+// Copyright © 2021 Rutger van Beusekom <rutger.van.beusekom@verum.com>
+//
+// This file is part of Verum-Dezyne.
+//
+// Verum-Dezyne is property of Verum Software Tools BV <support@verum.com>.
+// All rights reserved.
+
+import ../transport/transport_interface.dzn;
+import ../transport/transport.dzn;
+
+$ (define (log o string . rest) (let ((log-debug (dzn:get (.locator o) <procedure> 'log-debug))) (apply log-debug (cons string rest)))) $
+
+namespace command {
+
+  extern config_t $*unspecified*$;
+  extern command_t $*unspecified*$;
+  extern data_t $*unspecified*$;
+  extern error_t $*unspecified*$;
+  extern label_t $*unspecified*$;
+
+  interface Icontrol {
+    in void setup(config_t config);
+    out void set_up(data_t data);
+
+    in void command(command_t cmd);
+
+    out void result(data_t data);
+    out void error(error_t error);
+    out void disconnect(data_t data);
+
+    // TODO: add closing/error/disconnect -- something
+    // Command_controller
+    behavior {
+      enum State {Idle, Setup, Active, Busy, Closing};
+      State state = State.Idle;
+      [state.Idle] {
+        on setup: state = State.Setup;
+        on setup: error;
+        on command: illegal; // wait for Active
+      }
+      [!state.Idle] {
+        on setup: illegal;
+      }
+      [state.Setup] {
+        on command: illegal; // wait for Active
+        on inevitable: { set_up; state = State.Active; }
+        on optional: { error; state = State.Idle; }
+      }
+      [state.Active] {
+        on command: state = State.Busy;
+        on optional: { disconnect; state = State.Idle; }
+        on optional: { error; state = State.Closing; }
+      }
+      [state.Busy] {
+        on command: illegal;
+        // send events from daemon to command widgets
+        on inevitable: { result; state = State.Active; }
+        on inevitable: { error; state = State.Closing; }
+        on inevitable: { disconnect; state = State.Idle; }
+      }
+      [state.Closing] {
+        on command: illegal;
+        on inevitable: {disconnect; state = State.Idle;}
+      }
+    }
+  }
+
+  interface Idaemon {
+    in void setup(config_t config);
+    out void connected();
+    out void disconnect(data_t data);
+
+    out void result(data_t data);
+    out void error(error_t e);
+
+    // new events
+    in void command(command_t cmd);
+
+    behavior {
+      enum State {Idle, Setup, Active, Busy, Closing};
+      State state = State.Idle;
+      [state.Idle] {
+        on setup: state = State.Setup;
+        on setup: error;
+        on command: illegal;
+      }
+      [state.Setup] {
+        on inevitable: { connected; state = State.Active; }
+        on optional: { error; state = State.Idle; }
+        on command: illegal;
+        on setup: illegal;
+      }
+      [state.Active] {
+        on command: state = State.Busy;
+        on setup: illegal;
+        on optional: { disconnect; state = State.Idle; }
+        on optional: { error; state = State.Closing; }
+      }
+      [state.Busy] {
+        on command: illegal;
+        on inevitable: { result; state = State.Active; }
+        on inevitable: { disconnect; state = State.Idle; }
+        on inevitable: { error; state = State.Closing; }
+        on setup: illegal;
+      }
+      [state.Closing] {
+        on command: illegal;
+        on setup: illegal;
+        on inevitable: error;
+        on inevitable: { disconnect; state = State.Idle; }
+      }
+    }
+  }
+
+  interface Idaemon_data2event {
+    in void wrap(label_t label, data_t data);
+    out void envelope(data_t data);
+
+    in void data2event(data_t data);
+
+    out void result(data_t data);
+    out void error(error_t e);
+
+    behavior {
+      on wrap: envelope;
+      on data2event: result;
+      on data2event: error;
+    }
+  }
+
+  component Command_controller {
+    provides Icontrol control;
+    requires Idaemon daemon;
+    behavior {
+      enum State {Idle, Setup, Active, Busy, Closing};
+      State state = State.Idle;
+      [state.Idle] {
+        on control.setup(config): {daemon.setup(config); state = State.Setup;}
+        on daemon.error(e): control.error(e);
+      }
+      [state.Setup] {
+        on daemon.connected(): {control.set_up($#t$); state = State.Active;}
+        //on daemon.disconnect(msg): {control.error(msg); state = State.Idle;}
+        on daemon.error(e): {control.error(e); state = State.Idle;}
+      }
+      [state.Active] {
+        // send events from command to daemon
+        //on daemon.error(e): state = State.Closing;
+        on daemon.error(e): {state = State.Closing; control.error (e);}
+        on control.command(cmd): {daemon.command(cmd); state = State.Busy;}
+        on daemon.disconnect(msg): {control.disconnect(msg); state = State.Idle;}
+      }
+      [state.Busy]
+      {
+        // send events from daemon to command widgets
+        on daemon.result (result): {control.result(result); state = State.Active;}
+        on daemon.disconnect(msg): {control.disconnect(msg); state = State.Idle;}
+        on daemon.error(e): state = State.Closing;
+      }
+      [state.Closing] {
+        on daemon.disconnect(msg): {control.disconnect(msg); state = State.Idle;}
+        on daemon.error(msg): {}
+      }
+      }
+  }
+
+  component Daemon_proxy_controller {
+    provides Idaemon daemon;
+    requires transport.Iwebsocket transprt;
+    requires Idaemon_data2event data2event;
+
+    behavior {
+      enum State {Idle, Setup, Active, Closing, Error};
+      State state = State.Idle;
+      bool busy = false;
+
+      [state.Idle] {
+        on daemon.setup(config): {state = State.Setup; transprt.open(config);}
+      }
+      [state.Setup] {
+        on transprt.connected (ws): {state = State.Active; daemon.connected();}
+        on transprt.error(ws, e): {state = State.Idle;daemon.error (e);}
+      }
+      [state.Active] {
+        on transprt.error (ws, e): {state = State.Closing; daemon.error(e);}
+        on transprt.disconnect (ws, msg): {state = State.Idle; busy = false; daemon.disconnect(msg);}
+        on data2event.envelope(msg): transprt.send(msg);
+        on transprt.message(ws, data): data2event.data2event(data);
+        on data2event.error(e): {}
+        [!busy] {
+          on daemon.command(cmd): {busy = true; data2event.wrap($"command"$, cmd);}
+          on data2event.result(data): {}
+        }
+        [busy] on data2event.result(data): {daemon.result(data); busy = false;}
+      }
+      [state.Closing] {
+        on transprt.disconnect (ws, msg): {state = State.Idle; busy = false; daemon.disconnect(msg);}
+        on transprt.error(ws, e): {}
+      }
+    }
+  }
+
+  component Daemon_data2event {
+    provides Idaemon_data2event data2event;
+    //behavior {}
+  }
+
+  component Daemon_proxy {
+    provides Idaemon daemon;
+
+    system {
+      Daemon_proxy_controller daemon_proxy;
+      transport.Transport_system transprt;
+      Daemon_data2event data2event;
+
+      daemon <=> daemon_proxy.daemon;
+      daemon_proxy.data2event <=> data2event.data2event;
+      daemon_proxy.transprt <=> transprt.websocket_transport;
+    }
+  }
+
+  component Commander {
+    provides Icontrol control;
+    system {
+      Command_controller controller;
+      Daemon_proxy daemon;
+
+      control <=> controller.control;
+      controller.daemon <=> daemon.daemon;
+    }
+  }
+}

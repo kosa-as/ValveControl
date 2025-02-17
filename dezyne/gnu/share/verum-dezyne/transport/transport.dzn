@@ -1,0 +1,89 @@
+// Verum-Dezyne --- An IDE for Dezyne
+//
+// Copyright © 2019 Rob Wieringa <Rob.Wieringa@verum.com>
+// Copyright © 2020 Paul Hoogendijk <paul.hoogendijk@verum.com>
+//
+// This file is part of Verum-Dezyne.
+//
+// Verum-Dezyne is property of Verum Software Tools BV <support@verum.com>.
+// All rights reserved.
+
+import transport_interface.dzn;
+
+namespace transport {
+
+  component Serialize {
+    provides Iserialize serialize;
+    //behavior {}
+  }
+
+  component Transport {
+    provides Iwebsocket transport;
+    requires Iwebsocket websocket;
+    requires Iserialize serialize;
+    behavior {
+      enum State {Closed, Opening, Open, Closing};
+      State state = State.Closed;
+      bool listening_ = false;
+
+      on websocket.disconnect(ws,msg): {if(listening_) state = State.Opening; else state = State.Closed; transport.disconnect(ws,msg);}
+
+      [state.Closed] {
+        on transport.close():{}
+        on transport.open (url): {state = State.Opening; listening_ = false; websocket.open (url);}
+        on transport.listen (config): {state = State.Opening; listening_ = true; websocket.listen (config);}
+        on serialize.message (msg): {}
+        on serialize.data (data): {}
+      }
+      [state.Opening]
+      {
+        on websocket.listening(): transport.listening();
+        on websocket.connected(ws): {state = State.Open; transport.connected(ws);}
+        on websocket.error(ws,e): {state = State.Closed; transport.error(ws,e);}
+        on transport.close(): {state = State.Closed; listening_ = false; websocket.close();}
+        on serialize.message(msg): {}
+        on serialize.data(data): {}
+      }
+      [state.Open]
+      {
+        on transport.get(ws): websocket.get(ws);
+
+        on transport.send(msg): serialize.pack(msg);
+        on serialize.data(msg): transport.message($0$,msg);
+
+        on websocket.message (ws, msg): serialize.unpack (msg);
+        on serialize.message (msg): websocket.send (msg);
+
+        on transport.close(): {if(listening_) state = State.Opening; else state = State.Closed; websocket.close();}
+
+        on websocket.error(ws,e): {if(!listening_) {state = State.Closing; transport.error(ws,e);}}
+      }
+      [state.Closing]
+      {
+        on serialize.data (data): {}
+        //on websocket.disconnect (ws, msg): transport.disconnect (ws, msg);
+        //on transport.send (msg): serialize.pack (msg);
+        on serialize.message (msg): {}//websocket.send (msg);
+
+      }
+    }
+  }
+
+  component Websocket {
+    provides Iwebsocket websocket;
+    //behavior {}
+  }
+
+  component Transport_system {
+    provides Iwebsocket websocket_transport;
+    system {
+      Transport transport;
+      Serialize serialize;
+      Websocket websocket;
+      websocket_transport <=> transport.transport;
+      serialize.serialize <=> transport.serialize;
+      websocket.websocket <=> transport.websocket;
+    }
+  }
+
+}

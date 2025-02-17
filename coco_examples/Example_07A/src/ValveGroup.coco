@@ -1,0 +1,19 @@
+import unqualified ValveController
+import unqualified ValveControllerImpl
+import unqualified ValveDriverImpl
+import unqualified ValveHAL
+
+@runtime(.MultiThreaded)
+component ValveGroup {
+  val client : Provided<ValveController>
+  val hal : Required<ValveHAL>
+
+  val valve : ValveControllerImpl
+  val driver : ValveDriverImpl
+
+  init() = {
+    connect(client, valve.client);
+    connect(valve.driver, driver.client);
+    connect(driver.hal, hal);
+  }
+}

@@ -1,0 +1,14 @@
+html, body {
+    background-color: #ffffff;
+}
+
+div.view {
+    width: 100%;
+    height: 100%;
+}
+
+.gshHeader {
+  border-color: #abe786;
+  font-size: 13;
+  margin-bottom: 9;
+}

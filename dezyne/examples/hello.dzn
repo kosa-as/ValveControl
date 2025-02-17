@@ -1,0 +1,19 @@
+
+interface ihello
+{
+  in void hello();
+
+  behavior
+  {
+    on hello: {}
+  }
+}
+
+component hello
+{
+  provides ihello h;
+  behavior
+  {
+    on h.hello(): {}
+  }
+}

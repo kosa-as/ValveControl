@@ -1,0 +1,313 @@
+#                                                              -*-org-*-
+#+TITLE: Verum-Dezyne NEWS – history of user-visible changes
+#+STARTUP: content showall
+#+OPTIONS: toc:nil
+#+OPTIONS: num:nil
+#+OPTIONS: ^:nil
+
+* Changes in 2.18.3 since 2.18.2
+** Verification
+  - The simulator is started with `--no-compliance' and `--no-refusals'
+    unless the verification (error) trail is non-empty and contains
+    '<non-compliance>'.
+  - The simulator is started with `--no-deadlock' unless the
+    verification (error) trail is non-empty and contains '<deadlock>'.
+  - The simulator is started with `--no-interface-determinism the
+    verification (error) trail is non-empty and contains '<non-determinism>'.
+** Noteworthy bug fixes
+  - The state shown in the simulator now stays in sync after a <defer>.
+
+* Changes in 2.18.2 since 2.18.1
+** Noteworthy bug fixes
+  - The `--queue-size-defer' option on `ide simulate' is now being
+    respected; it used to erroneously use the `--queue-size' value.
+
+* Changes in 2.18.1 since 2.18.0
+** Views
+  - The system layout has been improved.
+** Noteworthy bug fixes
+  - The `system' command now actually accepts `--wfc'.
+
+* Changes in 2.18.0 since 2.17.3
+** Verification
+  - The `ide verify' command now has a new option `--no-interfaces'
+    to disable the verification of a component's interfaces.
+** Noteworthy bug fixes
+  - In the state diagram, two bugs were fixed with respect to the prefix
+    used in "Choice states".
+  - The ill-advised practice of installing software in a prefix that
+    contains a space, is now also supported by the Windows CMD wrapper
+    scripts.
+
+* Changes in 2.17.3 since 2.17.2
+** Verification
+  - The `ide verify' command now has a new option `-U,--no-unreachable'
+    to disable the unreachable code check.
+** Pre-built binaries
+  - The binary zip files for Windows now come without Scheme source
+    files by default; sources are available in the `-debug' variants.
+
+* Changes in 2.17.2 since 2.17.1
+** Commands
+  - The different queue sizes: component, defer, external can now be set
+    individually using `--queue-size', `--queue-defer' and
+    `--queue-size-external'.  The defaults are respectively: 3, 2 and 1.
+  - The `ide verify' command now has a new option `-C,--no-constraint'
+    to disable the constraining of a component's behavior.
+** Daemon
+  - The deamon will exit when addressed by an ide client of a different
+    version.
+** Noteworthy bug fixes
+  - The width of the header in the trace diagram now uses the correct
+    display size of eligibles.
+  - The `ide verify' command now exits gracefully when no dezyne model
+    is found.
+  - The error reporting of the `ide lsp' daemon shows better errors
+    and is less noisy.
+
+* Changes in 2.17.1 since 2.17.0
+No changes.
+
+* Changes in 2.17.0 since 2.16.3
+** Views
+  - The system view now shows also shows instance names.  The old
+    behavior can be toggled with `i'.
+  - The highlights in the system view are reset after reloading.
+  - The state view now shows "Choice states".  If two or more
+    transitions share a common prefix, a single arrow labeled with that
+    prefix leads to an intermediate diamond-shaped anonymous Choice
+    state.  From this Choice state, different arrows each labeled with
+    their remaining transition labels lead to their target states.
+
+* Changes in 2.16.3 since 2.16.2
+** Noteworthy bug fixes
+  - Simulation of an interface with a subint event type now works
+    correctly.
+
+* Changes in 2.16.2 since 2.16.1
+** Views
+  - The system view now also shows for some incomplete systems.
+** Noteworthy bug fixes
+  - A regression in 2.16.0 was fixed that would show injected ports as
+    regular, unbound ports.
+
+* Changes in 2.16.1 since 2.16.0
+** Noteworthy bug fixes
+  - The documentation link at http://localhost:3000 has been fixed.
+
+* Changes in 2.16.0 since 2.15.4
+** Build
+  - Verum's Dezyne-IDE package has been rebranded as Verum-Dezyne.
+
+* Changes in 2.15.4 since 2.15.3
+** Commands
+  - The `ide verify' command now respects the `-P,--skip-wfc' option.
+  - The `ide system' command now skips the well-formedness check by
+    default ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/70][#70]],[[https://gitlab.com/dezyne/dezyne-issues/-/issues/73][#73]]).
+  - The `ide' commmand now has a new `--wfc' option to force (i.e., not
+    skip) the well-formedness check.
+
+* Changes in 2.15.3 since 2.15.2
+** Commands
+  - The `ide simulate' command has a new option: `-S,--no-strict'.
+** Noteworthy bug fixes
+  - The simulator now runs in --strict mode by default.  This fixes
+    possibly displaying the wrong verification error trace in the
+    presence of multiple alternatives.
+
+* Changes in 2.15.2 since 2.15.0
+** Noteworthy bug fixes
+  - The `-m,--model' option on `ide system' now actually works.
+
+* Changes in 2.15.0 since 2.14.0
+** Views
+  - When a diagram is larger than the view window, a scrollbar is shown.
+  - In the state diagram, the displaying of self-transitions can be
+    toggled using `s'.
+  - In the trace diagram:
+     + Return events always use the `from' location,
+     + Initially, the component lifeline is selected,
+     + Skip over queue-in events when component lifeline is selected,
+     + Using the Control key (Control-mouse1 or Control-arrow key)
+       selects the other location.
+** Commands
+  - A new command `ide info' to show the state of the daemon now
+    displays the simulate trail.
+  - The `ide simulate' command now supports the `-C,--no-compliance',
+    `-D,--no-deadlock',`--no-interface-livelock', and
+    `-Q,--no-queue-full' options.
+** Noteworthy bug fixes
+  - Using the --queue-size option on `ide simulate' is preserved and
+    used for subsequent interactive simulations.
+  - The `--strict' option on `ide simulate' is honored again.
+  - Locations in the system diagram also work when running the deamon
+    from a different worktree.
+
+* Changes in 2.14.0 since 2.13.3
+** Views
+  - In the trace view, the beginning of a livelock error is now marked
+    with "<loop>" ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/44][#44]]).
+  - In the state view, selecting a node highlights all directly
+    reachable nodes, improving the navigation of large models.  Pressing
+    `.' highlights the initial state.
+  - Pressing `F1' in the views shows a brief help popup with the mapping
+    of keys and buttons.
+** Commands
+  - The `ide state' command now supports hiding of unwanted detail.  The
+    new options `-R,--remove=...' and `-H,--hide=...' can be used to
+    filter-out port state or extended state from the nodes, action
+    transition labels or even all transition labels ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/29][#29]]).
+** Noteworthy bug fixes
+  - A failure to stop the daemon using `ide bye' is now handled
+    gracefully.
+
+* Changes in 2.13.3 since 2.13.2
+** Views
+  - In the trace view, the order of lifelines of the ports can be
+    changed by dragging them to a new place.
+  - For verification errors that have multiple error messages or extra
+    informational messages, such as compliance errors or range errors,
+    in the trace view each message can be clicked to show the relevant
+    location in the Dezyne code.
+** Noteworthy bug fixes
+  - The `ide lsp' command has been greatly improved ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/38][#38]],[[https://gitlab.com/dezyne/dezyne-issues/-/issues/41][#41]],[[https://gitlab.com/dezyne/dezyne-issues/-/issues/51][#51]],[[https://gitlab.com/dezyne/dezyne-issues/-/issues/52][#52]]):
+    + Redundant parsing has been eliminated: The callbacks for reading
+      a file and for parsing are now called only once per file; greatly
+      improving performance on larger projects,
+    + The lsp server can no longer be flooded with "didChange" messages,
+      leading to a denial of service: superseeded "didChange"
+      messages are now dropped; also cancel-requests are honored,
+    + Error messages no longer contain the skipped text; this makes the
+      root cause of the error easier to spot,
+    + An import statement refering to a non-existing file is now
+      reported as a syntax error,
+    + A syntax check is now also performed when a file is opened, any
+      errors are reported,
+    + When a file is opened using the "textDocument/didOpen" command,
+      the text from the message is used instead of accessing the file
+      system,
+    + The "textDocument/didOpen" command now also works even if the file
+      is not present on the file system,
+    + Two problems with unbounded recursion and several crashes have
+      been fixed.
+    + The goto definition function now also considers the identifier to
+      the left of the cursor if the cursor is on punctuation, catering
+      for users that use a caret instead of a cursor in their editor.
+  - A second `ide simulate' session for another model from the same
+    file now corretly simulates and presents the newly selected model,
+  - The System view now automatically updates after running a new `ide
+    system' command ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/56][#56]]).
+  - A bug has been fixed in the System view that could cause
+    stack-overflow in JavaScript.
+
+* Changes in 2.13.2 since 2.13.1
+** Views
+  - An SVG image of a view can be saved by pressing Control-S.
+** Noteworthy bug fixes
+  - Verify and simulate now always show a trace view ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/34][#34]]):
+    + The alert sign with messages is shown even when there is no
+      trace,
+    + An invalid trace is handled gracefully; the valid prefix of the
+      trace is shown along with an error message,
+    + Pressing [F12] now always produces the browser's console.
+  - User experience ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/37][#37]]):
+    + Source code locations of some arrows have been fixed,
+    + All error messages are now also shown in the browser,
+    + The placement of the alert sign and the last arrow leading up to
+      the alert sign has been fixed,
+    + The color scheme of an interface trace is now consistent,
+    + Performance: built with GNU Guile 3, Windows 64 bit.
+
+* Changes in 2.13.1 since 2.13.0
+** Noteworthy bug fixes
+  - Simulation now reports well-formedness errors instead of merely
+    exiting with a non-zero status.
+  - The well-formedness check is now skipped on subsequent simulation
+    runs.
+  - When verifying a correct model that is defined in a namespace, a
+    crash has been fixed that prevented the simulation function to
+    start ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/50][#50]]).
+
+* Changes in 2.13.0 since 2.12.0
+** Simulation
+  - Simulation now uses the `dzn simulate' command under the hood.
+    This provides a simulation function including system scope and
+    enables future language updates.  Its performance requires more
+    work.
+  - The `--queue-size' option is now supported for simulation.
+** Verification
+  - Detailed error messages of verification and simulation are
+    displayed in the console.
+  - The `--all' flag has been removed for `ide verify' and thus the
+    implicit ide simulate displays the first and only error.
+** Views
+  - Clicking on a port in the System view highlights the port binding
+    across system boundaries.
+  - The System view now uses P5.
+  - The Trace view now uses P5.
+** Noteworthy bug fixes
+   - The daemon now supports the `-w,--http-port' option.
+
+* Changes in 2.12.0 since 2.11.0
+** Commands
+  - A new command `ide state' provides a state diagram for interfaces,
+    components and systems.  The state comprises all variables, the
+    behaviour .  Under the hood, it uses the new `dzn explore' command.
+    Note that there is no convenient way to display models with a large
+    state space yet.  Also note that the trace view still uses the
+    component simulator.
+  - ide commands no longer spawn a browser.
+** Views
+  - The views now reconnect automatically when the connection to the
+    daemon is lost.
+** Build
+  - Building with Guile 3.0.5 is now supported.
+** Noteworthy bug fixes
+  - The implicit --all flag was removed from ide verify.  As the current
+    trace view can only show one verify result, running with --all can
+    lead to confusion ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/13][#13]]).
+  - The system view now handles every go-to-location click ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/14][#14]]).
+  - Click events now carry the working directory of a command.  Even
+    when the daemon was started in another directory than the current
+    working directory of a command, click events should continue to
+    work ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/15][#15]]).
+  - The LSP client is now robust against non-existent imports ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/16][#16]]).
+  - On Windows, `ide verify' would hang for a model with a longer
+    compliance error trace ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/17][#17]]).
+  - On Windows, `ide browse' uses the user-defined default browser
+    instead of trying chromium first.
+
+* Changes in 2.11.0 since 2.9.1
+** The integrated Eclipse download has been discontinued.
+** Dezyne is now stand alone, client only, serverless, pure GNU Guile Scheme.
+** Dezyne-IDE has browser-based views and integrates with any LSP-aware editor.
+  - Support for GNU Emacs.
+  - Support for Electron-based editors, such as VSCodium.
+    + VSCode plugin: [[https://dezyne.org/download/dezyne-ide/dzn-lsp-1.0.0.vsix][https://dezyne.org/download/dezyne-ide/dzn-lsp-1.0.0.vsix]]
+** Commands
+  - A new command `ide lsp' provides a stdio-based Language Protocol
+    Server for the Dezyne language.
+  - The Dezyne-IDE, view-commands are now subcommands `ide': `ide
+    simulate', 'ide system, `ide verify', `ide browse', `ide daemon`,
+    `ide hello', and `ide bye'.
+** Views
+  - The Trace view now places the buttons with the port's time line.
+  - The State view was removed.  The state view in 2.9 (and earlier) was
+    often incomplete or incorrect.  A complete and correct State view
+    will return.
+  - The Table views were removed.
+  - The watch window has been integrated in the sequence diagram.
+  - The watch window itself is now deprecated.
+  - Diagram click is optionally (ide lsp --relay-daemon) mapped to an
+    LSP publishDiagnostics message, this will likely change in the near
+    future.
+
+* legalese
+
+Copyright © 2020,2021,2022,2023,2024 Janneke Nieuwenhuizen <janneke@gnu.org>
+
+  Copying and distribution of this file, with or without modification,
+  are permitted in any medium without royalty provided the copyright
+  notice and this notice are preserved.
+
+Please send Dezyne bug reports to bug-dezyne@nongnu.org.

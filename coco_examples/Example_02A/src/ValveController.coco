@@ -1,0 +1,16 @@
+port ValveController {
+  function setup() : Nil
+  function open() : Nil
+  function close() : Nil
+
+  machine {
+    state Initial {
+      setup() = setNextState(Operational)
+    }
+
+    state Operational {
+      open() = {}
+      close() = {}
+    }
+  }
+}

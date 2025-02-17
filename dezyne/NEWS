@@ -1,0 +1,1212 @@
+#                                                              -*-org-*-
+#+TITLE: Dezyne NEWS – history of user-visible changes
+#+STARTUP: content showall
+#+OPTIONS: toc:nil
+#+OPTIONS: num:nil
+#+OPTIONS: ^:nil
+
+* Changes in 2.18.3 since 2.18.2
+** Code
+  - The thread pool destructor in the C++ runtime now documents the
+    pre-condition explicitly using an assert.
+** Noteworthy bug fixes
+  - Shared state in the requires ports can now also be used in guards in
+    the component behavior.
+  - A semantic inconsistency between simulation and code and
+    verification has been resolved by communicating trailing assignments
+    after flushing the component queue.
+  - To and from string enum functions for enums nested in components are
+    now also generated.  This was a regression introduced in 2.18.0.
+  - Well-formedness checks have been added for replying or returning a
+    non-literal void expression.
+  - A well-formedness check was added to assert function parameters and
+    variables are not declared of type void.
+  - A problem where the well-formedness check would erroneously report a
+    recursion error for a deferred call has been fixed.
+  - A bug has been fixed in the simulator where simulating strictly up
+    to a choice with a subint value would cause a crash.  This was a
+    regression introduced in 2.18.2.
+  - The unobservable non-determinism check in the simulator now also
+    reports non-determinism when there are two or more deterministic
+    traces in addition to non-deterministic traces.
+  - The unobservable non-determinism check in the simulator no longer
+    reports non-determinism when the traces are observably different.
+
+* Changes in 2.18.2 since 2.18.1
+** Code
+  - The C++ runtime headers can now be compiled with `-Werror -Wshadow';
+    An extra file `coroutine.cc' was added.
+** Simulation
+  - The simulator now supports semicolon (`;') separated input trails.
+  - The simulator now truncates the trace leading up to a non-compliance
+    error at the first offending event.
+** Verification
+  - The `-D,--non-non-compliance' option was removed.
+** Noteworthy bug fixes
+  - A false negative illegal in collateral blocking context will now be
+    reported correctly by verify.
+  - A false positive non-compliance error in blocking context is no
+    longer reported by the simulator.
+  - A forking compliance error in multiple provides context will now be
+    displayed correctly again by simulate.  This was a regression
+    introduced in 2.18.0.
+  - The simulator will now prioritize the reporting of an illegal error
+    over a non-compliance, also without using `--no-compliance'.
+  - A crash in the `--language=json' output has been fixed when not
+    removing a behavior containing functions.
+  - The performance degradation of 2.18.0's verify that notably impacts
+    armoring components that weren't upgraded to take advantage of the
+    2.17 `implicit interface constraints' feature yet, has been reduced.
+
+* Changes in 2.18.1 since 2.18.0
+** Code
+  - C++ runtime facilitates shared-state strictness through the
+    dzn_strict_p boolean, which is explicityly set to true by the
+    generated code, and therefore false by default.  Note that the
+    default case is aimed at thread safe shell systems, which do not
+    support shared state on their boundary events.
+  - Shared state enables the generated code to enforce the behavior of
+    each interface.  Any event which is illegal from the interface point
+    of view will now instantly trigger an illegal assert at runtime.
+  - In the C++ runtime the timer handling behavior has been changed to
+    prevent infinite timer loops using a 0 timeout delay.
+** Noteworthy bug fixes
+  - The simulator again allows observable non-determinism in interfaces;
+    disallowing this was a regression introduced in 2.18.0.
+  - The dezyne version is now also added to installed C and C++ headers.
+  - In the generated (C++) code, a local enum variable used only as a
+    field test in a defer statement is now captured by value and
+    can no longer go out of scope.
+  - A bug was fixed in the verifyer that would erroneously flag a
+    deadlock when using nested guarding.
+  - During verification of a component, interface models are verified
+    only once.
+  - The C++ runtime now has a specialization of dzn::check_bindings
+    specifically for foreign components.
+  - The well-formedness check now also reports redefinition errors for
+    names in a namespace.
+  - A bug in the location calculation was fixed that would lead to a
+    quadratic performance problem for large files (over 10,000 lines).
+  - A bug in the simulator that would erroneously flag a
+    <non-compliance> error for a non-deterministic interface has been
+    fixed; this was a regression introduced in 2.18.0.
+
+* Changes in 2.18.0 since 2.17.3
+** Language
+  - A component can now directly refer to the state values of its ports
+    from an expression (guard, if, assignment).
+  - The undocumented feature of defining models and types using a name
+    with an inline dotted namespace has been removed.
+** Build
+  - The test runner now has a `--t,--timeout' option, using a 5min
+    default.
+  - For C and C++, include headers are installed in <includedir>/dzn.
+  - For C, a new libdzn library is built and installed in <libdir>
+    on systems that have GNU pth.
+  - For C++, a new libdzn-c++ library are built and installed in
+    <libdir> on systems that have pthreads.
+** Verification
+  - A new `-T,--timings' option now shows detailed timings for the
+    different stages like: parse, normalization and mCRL2.
+  - The compliance check is no longer skipped when the unreachable code
+    check reports errors.
+  - The `-j,--jitty' flag has been removed.
+** Code
+  - C++ implements directly referring to the state values of its port.
+  - Lambda capture lists explicitly refer to `this' since C++20
+    deprecates the implicit capture for `='.
+  - The code generator backends for C++, C#, and C have been rewritten
+    based on [[https://gitlab.com/janneke/scmackerel][SCMackerel]].
+  - The experimental C code generator now supports blocking and defer,
+    strictly single-threaded, using [[https://www.gnu.org/software/pth/][GNU Portable Threads]].
+  - The C++ and C runtime and code generator now use a more consistent
+    coding style [[https://www.gnu.org/prep/standards/html_node/Formatting.html][GNU Coding Standards]].
+  - The C++ code generator and runtime now adds the source code location
+    of an illegal.
+  - The C++ generated code no longer adds `check_bindings',
+    `dump_tree' functions to components; Use runtime functions
+    `dzn::check_bindings' and `dzn::dump_tree' instead.
+  - The C++ generated code no longer generates global `connect'
+    functions; Use the runtime function `dzn::connect' instead.
+  - Setting the dzn_share_p boolean in a port to false, before it is
+    connected, allows disabling maintaining state sharing, as well as
+    strict illegal checking.  This is a (temporary) workaround for an
+    interface that is more restrive than its handwritten implementation.
+  - The pretty printer (code --language=dzn) now also supports most
+    synthesized AST elements which is especially useful in combination
+    with transformations (`-t,--transform').
+  - When generating code for a thread-safe shell system, i.e., using
+    `-s,--shell', the well-formedness check will now assert that
+    its outer requires ports are marked `external'.
+  - For languages `json' and `makreel', the `-o,--output' option is now
+    honored too.
+  - The `-s,--shell' option can now be used multiple times.
+  - The `--language=json' output no longer implicitly remove behaviors.
+** Noteworthy bug fixes
+  - A verification bug was fixed that would erroneously report a
+    deadlock for non-determinstic interface constraints.
+  - A verification bug was fixed to correctly report unreachable code
+    when interface and component imperative statement locations overlap.
+  - Running the parser in `-f,--fall-back' mode now shows a parse tree
+    again; a regression introduced in 2.17.2.
+  - Event names can now overlap with toplevel names.
+  - For C++, it is no longer necessary to add tracing to events
+    implemented in handwritten code, the runtime now takes care of this.
+  - The `dzn_' prefix is used more consistently in generated code to
+    avoid possible clashes with user defined names.
+  - When generating executable code, using an empty dollar expression
+    ($$) now raises a well-formedness error.
+  - The verification no longer reports a false positive defer-induced
+    <queue-full> when using defer after a function call.
+  - A bug in the name resolver has been fixed that would lead to a
+    quadratic performance impact when looking up an undefined type.
+  - Use of the unreachable code check, which is enabled by default,
+    would add `tag (line, column)' arguments on the `dzn lts' command
+    line, making it more prone to hit the [[https://docs.microsoft.com/en-us/troubleshoot/windows-client/shell-experience/command-line-string-limitation][arbitrary 8191 command-line
+    limit]]) when running `dzn verify' on a Windows desktop.  Tags have
+    been moved from the command-line to the verify pipeline; Note, the
+    limit on Windows remains for other user input derived information
+    communicated via the command-line.
+  - Building the C++ pump using the `Boost::Coroutine' library works out
+    of the box again.  This was a regression introduced in 2.16.0.
+  - In the C++ runtime `dzn::thread::defer' has been renamed to
+    `dzn::async' and its definition has been moved to `std-async.cc'.
+  - The `std::async' in the C++ pump has been replaced by `dzn::async'
+    to allow selecting between `std::async' and `dzn::thread::pool' by
+    either linking to `std-async.cc' or `thread-pool.cc' respectively.
+    This allows working around the arbitrary limits in `std::async'
+    observed on some Microsoft systems.
+  - The C++ thread-pool no longer joins threads at destruction, instead
+    it detaches them.
+  - The well-formedness check now allows using an early return in a
+    tail-recursive function.
+  - The well-formedness check now allows statements after a
+    non-recursive call in a recursive function.
+  - A bug leading to stray verification errors was fixed for two
+    triggers using the same imperative statement.
+  - The simulator now correctly reports a queue-full error for a
+    non-compliant component where an unbounded defer is only restricted
+    by its interface constraint.
+  - The C++ thread-pool now respects its resource dependencies by
+    declaring members in the proper order to allow problem/error free
+    destruction.
+  - The well-formedness check now reports a guard statement used in an
+    imperative context.
+  - A bug has been fixed in the C++ code generator for a system in a
+    namespace, using a component instance from another namespace.
+  - The performance of the unreachable code check has been improved.
+  - A well-formedness check has been added to for `return' to be the
+    final statement of a block.
+
+* Changes in 2.17.3 since 2.17.2
+** Noteworthy bug fixes
+  - Event names can now overlap with toplevel names.
+  - In C++ the ability added in 2.17.1 to inject ports of foreign
+    components lead to a data race in tracing when the foreign port is
+    shared across multiple thread safe shell threads.  This is now
+    fixed.  However, the tracing of foreign interaction is incorrect
+    for all but the last constructed client.  The only way to correct
+    this is to offer a port per client on the foreign component.
+
+* Changes in 2.17.2 since 2.17.1
+** Code
+  - The experimental C code generator now supports out-parameters.
+** Commands
+  - The different queue sizes: component, defer, external can now be set
+    individually using `--queue-size', `--queue-defer' and
+    `--queue-size-external'.  The defaults are respectively: 3, 2 and 1.
+** Verification
+  - The error on failing the determinism check is no longer ambiguous by
+    removing "due to overlapping guards" from the message.
+** Simulation
+  - The error on failing the determinism check is no longer ambiguous by
+    removing "due to overlapping guards" from the message.
+** Noteworthy bug fixes
+  - A bug was fixed in the type name lookup of a formal parameter
+    binding (a <- b).
+  - A bug was fixed in generalized integer expressions of form `a-b-c'.
+  - A bug was fixed in the normalization involving implicit temporaries
+    that would crash the verifier on constructs like g (f ($0$)).
+  - A bug was fixed in the verifier that could lead to a false positive
+    for models that have a blocking skip race.
+  - The verifier no longer hangs attempting to create a witness for a
+    livelock in a non-deterministic interface.
+  - The well-formedness check now reports declarative statements inside
+    a function as being incorrect.
+  - A bug was fixed in the verifier for reporting queue-full cases for
+    an external port.  As a result, queue-full is now reported during
+    the illegal check and not as part of the deadlock check.
+  - The `dzn simulate` command now exits gracefully when no dezyne
+    model is found.
+
+* Changes in 2.17.1 since 2.17.0
+** Code
+  - The C++ code generator now places the enum stream operator `<<' in
+    the same namespace as its type to be resolved through ADL.
+  - The C++ code generator and runtime now place all std::string
+    conversion functions in the dzn namespace.
+  - The C++ code generator and runtime now use a illegal handler
+    `handle' function annotated with `noreturn'.
+
+* Changes in 2.17.0 since 2.16.3
+** Language
+  - A component's behavior is now implicitly constrained by the behavior
+    of its provides interfaces.
+  - Unary minus is now supported in integer expressions.
+  - Integer expressions have been generalized: It is no longer necessary
+    to split a longer expression or to use parameters.
+  - Support for `dzn.async' ports has been removed.
+** Parser
+  - A new transformation has been added: `tag-imperative-blocks'.
+  - Reduced well-formedness checking overhead by about 50%.
+  - The behavior of imported components is no longer checked for
+    well-formedness.
+  - Defining an event in an interface and not using it in its behavior is
+    now reported as a well-formedness error.
+** Verification
+  - The verifier now checks for unreachable code.
+  - As a result of the unreachable code check, two identical on
+    statements are now reported as having an overlapping guard.
+  - The verifier has a new option `-C,--no-constraint' to disable
+    the constraining fo a component's behavior.
+  - The verifier has a new option '-D,--non-non-compliance' to report a
+    deadlock error instead of a non-compliance error.
+  - The verifier has a new option `-U,--no-unreachable' to disable the
+    unreachable code check.
+  - The verifier has a new option `--jitty' to run `lps2ts' using
+    `--rewriter=jittyc' for large models.
+** Code
+  - The performance of the code generators has been improved by skipping
+    normalization of imported interfaces and components.
+  - The generated C++ and its runtime now uses typed pointers instead of
+    void pointers for component instances.
+  - The C++ code generator now uses C++11 style enums, instead of struct
+    scoped C style enums.
+  - The return type of the enum to_string function has been changed from
+    std::string to char const*.
+  - The enum stream operator `<<' has been templatized to allow
+    overloading for character type and traits.
+  - The C++ code generator no longer generates redundant enum
+    declarations and corresponding string conversion functions.
+  - The C++ code generator now places the foreign skeleton constructor
+    into its own compilation unit.  This assures compilation with
+    non-redundantly generated new style enums regardless of import
+    ordering.
+** Noteworthy bug fixes
+  - Some longstanding bugs have been fixed in relation to
+    + Extending nested namespaces in imports,
+    + Referencing partially named identifiers,
+    by a full rewrite of the lookup algorithm.
+  - The C++ code generator now supports imported foreign components.
+  - The C# code generator now supports foreign components returning a
+    enum that is defined in an interface.
+  - The experimental C code generator no longer generates duplicate enum
+    string conversion functions.
+  - The experimental C code generator now supports a foreign component at the
+    top of a system.
+  - The well-formedness check no longer crashes on a binary expression
+    with a data constant.
+
+* Changes in 2.16.3 since 2.16.2
+** Noteworthy bug fixes
+  - A bug was fixed in the C++ and C# code generators where a data
+    parameter could shadow an event method.
+  - Simulation of an interface with a subint event type now works
+    correctly.
+  - In the C++ runtime, a bug was fixed where a debug stream disabled
+    with a nullptr streambuf could be used.
+  - Using an enum or data type defined in an imported interface that is
+    otherwise unused, is now supported.  As a consequence, code must be
+    generated for all files now, i.e., also for files that only define
+    types or use dollars.
+
+* Changes in 2.16.2 since 2.16.1
+** Language
+  - In a valued function, after an "illegal" a return is no longer
+    required.
+  - Shadowing of a type name with a variable identifier is now a
+    well-formedness error.
+  - Compound namespace definitions are now supported.
+** Noteworthy bug fixes
+  - A bug in the C++ and C# runtime has been fixed that could lead to
+    reading from an empty list of timers when using defer.
+  - The C++ code generator no longer generates multiple includes when
+    multiple interfaces are defined in one file ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/75][#75]]).
+  - The simulator now produces a correct split-arrow trace for certain
+    models with a V-fork compliance error.
+  - A crash in normalization has been fixed for certain models with
+    non-deterministic guards.
+  - The well-formedness check now gracefully handles an action with an
+    undefined type, used in an expression, and report the error.
+  - The parser no longer crashes when using a comment on an enum field.
+  - The `inline-functions' transformation now correctly handles the
+    optional list of function names and also transforms function bodies.
+  - A system diagram can now also be generated for some incomplete
+    (faulty) systems.
+
+* Changes in 2.16.1 since 2.16.0
+** Code
+  - In the the C++ runtime, the signature of skip_block has been changed
+    and moved into the call_helper.
+  - The C# code generator now supports using a requires injected port in
+    a foreign component.
+** Verification
+  - A performance regression since 2.15.4 for certain types of model was
+    fixed.
+** Noteworthy bug fixes
+  - A regression was fixed in the C++ and C# code generators that could
+    make a valued blocking trigger not block if an earlier non-blocking
+    reply was issued on the same port.
+  - A regression was fixed in the C++ code generator for foreign
+    components using a requires injected port.
+  - The simulator now correctly shows a compliance error for a blocked
+    trigger that is (marked) illegal in the provides interface.
+  - The C++ runtime now avoids a compiler warning when using -DNDEBUG.
+
+* Changes in 2.16.0 since 2.15.4
+** Language
+  - A new keyword `defer' has been introduced.
+  - The `dzn.async' ports are now deprecated.
+  - Complex boolean and integer expressions are now supported.
+** Build
+  - The tests for the experimental Scheme code generator are now being
+    compiled.
+  - The tests for the experimental Scheme and JavaScript code generators
+    now also execute out-of-the-box in a container.
+** Code
+  - The C++, C#, and experimental Scheme code generators support `defer'.
+  - The experimental Scheme code generator now also supports collateral
+    blocking and thus has full blocking support.
+  - The C++ and C# runtime now has a more elegant and efficient
+    implementation for collateral blocking.
+  - The code generators now produce expressions with `&&' and `||' using
+    courtesy parentheses.  This avoids compiler warnings.
+  - The code generators no longer produce unnecessarily parenthesized
+    and complex expressions.  This also avoids CLANG compiler warnings.
+  - The code generators now preserve the top level comment.
+** Commands
+  - The `dzn' command has a new option: `-t,--transform=TRANS'.  This
+    makes dzn->dzn transformation avaiable from the command line.
+    + New transformations have been added:
+      `add-determinism-temporaries`, `inline-functions',
+      `simplify-guard-expressions', and `split-complex-expressions'.
+    + The `add-explicit-temporaries' transformation now supports complex
+      boolean and integer expressions ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/67][#67]]).
+** Noteworthy bug fixes
+  - Some warnings in the C++ runtime have been fixed and side-stepped.
+  - The mCRL2 code generator now generates correct code for an unused
+    assignment from an action or function call as only statement in a
+    branch of an if-statement.
+  - Shadowing of a variable in a branch of an if-statement is no longer
+    rejected.
+  - The simulator now correctly displays a V-fork compliance error in a
+    blocking trace.
+  - The simulator now correctly handles a trace with foreign provides
+    triggers.
+
+* Changes in 2.15.4 since 2.15.3
+** Code
+  - In C++, C# and the experimental Scheme code generators, a
+    formal-binding ("<-") to assign an out-parameter is now also
+    supported without blocking, in a synchronous out event context
+    ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/74][#74]]).
+
+* Changes in 2.15.3 since 2.15.2
+** Noteworthy bug fixes
+  - A bug in the C++, C#, and the experimental Scheme and JavaScript
+    runtime and code-generators was fixed for the use of handwritten
+    foreign components without skeleton support (this is not
+    recommended!).  This was a regression in 2.15.0 and for the
+    experimental code generators in 2.15.2.
+
+* Changes in 2.15.2 since 2.15.1
+** Build
+  - The test suite now passes on i686-linux.
+** Code
+  - The c++ runtime now avoids making unnecessary copies.
+  - The c++ runtime now avoids construction of trace strings when
+    tracing is disabled.
+  - The experimental c, javascript, and scheme code generators now pass
+    the test suite for their partial supported feature set.
+** Noteworthy bug fixes
+  - The parser now accepts `on <event>, inevitable:' and `on <event>,
+    optional:'.  This was a regression since 2.9.1.
+  - The `dzn graph' command now also honors the -m,--model option for
+    --format=json.
+  - The `dzn graph --backend=state' command now produces sorted output.
+  - The simulator no longer changes the state of the provides port
+    without showing provides port interaction when using
+    `-C,--no-compliance'.
+  - The order of `-I,--import' options is now preserved.
+  - The dzn code generator has been fixed by:
+    + Adding spacing for port qualifiers,
+    + Adding support for `blocking' port qualifier,
+    + Preserving data type definitions,
+    + Preserving the scope of of function types,
+    + Including import statements.
+  - A bug was fixed in the experimental c code generator with respect to
+    negation in expressions.
+  - The experimental javascript and scheme code generators now support
+    reply on a synchronous out event.
+  - The experimental c, javascript and scheme code generators now use a
+    colon (`:') as separator between the enum-type and enum-field, in
+    compliance with this change in 2.13.0.
+  - The experimental scheme code generator now supports non-collateral
+    blocking, i.e., exclusively in the top component of a system.
+
+* Changes in 2.15.1 since 2.15.0
+** Build
+  - Tests that produce unstable witnesses have been disabled so that the
+    test-suite now passes with different builds of mCRL2 that, in case
+    of multiple counter examples, leads to reporting one of them
+    (pseudo) randomly.
+** Noteworthy bug fixes
+  - Verification no longer erroneously reports a deadlock when using
+    blocking in a synchronous context.
+  - The simulator no longer prints the initiating port event arrow twice
+    which would lead to an invalid split-arrows trace for certain
+    compliance errors.
+  - The simulator now synthesizes the missing port action in case of a
+    compliance error, to produce a complete split-arrows trace.
+  - The simulator now reports a second reply error at the return of a
+    void event if a reply was already set.
+  - The simulator now reports a deadlock when using a void reply in a
+    non-blocking synchronous context.
+  - The simulator no longer reports a deadlock when using a skip-block
+    reply in a function.
+  - The simulator now correctly postpones flushing in system context
+    when using multiple out events on a single modeling event until all
+    events are enqueued.
+
+* Changes in 2.15.0 since 2.14.0
+** Language
+  - Blocking is now fully supported, it may be used:
+    + In non-toplevel components,
+    + In a component with multiple provides ports, but see the
+      `Blocking' section in the manual for caveats,
+    + A new `blocking' qualifier for ports must be used if a port can
+      block, or block collateraly.
+  - Using unobservable non-determinism in interfaces is no longer
+    supported.
+  - An action or function call can now also be used in a return
+    expression ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/67][#67]]).  Note that recursive functions still cannot be
+    valued.
+** Commands
+  - The `dzn explore' command has been removed.
+** Verification
+  - The verifier now supports blocking for components with multiple
+    provides ports.
+  - The verifier now detects possible deadlock errors due to a requires
+    action blocking collaterally, which could happen when a component
+    deeper in the system hierarchy uses blocking.
+  - The option `--no-interface-determinism' has been removed for `dzn
+    verify'.
+** Simulation
+  - The simulator now supports collateral blocking.
+  - In interactive mode:
+    + The new ,state command show the state ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/66][#66]]),
+    + The new ,quit command exits the session,
+    + The simulator does not exit when supplying empty input.
+  - The simulator now detects possible deadlock errors due to a requires
+    action blocking collaterally, which could happen when a component
+    deeper in the system hierarchy uses blocking.
+  - The simulator now detects livelocks in interfaces at end of trail.
+  - The simulator now detects queue-full errors caused by external at
+    end of trail.
+  - The `dzn simulate' command now supports the `-C,--no-compliance',
+    `--no-interface-livelock' and `-Q,--no-queue-full' options,
+** Code
+  - The C++ and C# code generators and runtime now fully support
+    collaterally blocking components.
+  - The C++ and C# code generators generators now support reply on a
+    synchronous out event.
+** Views
+  - Returns are no longer removed from the state-diagram.  Using the new
+    `--hide=returns' (or `--hide=actions') now removes void action
+    returns.
+** Documentation
+  - Blocking has been updated and extended.
+  - A new section on foreign components was added.
+** Noteworthy bug fixes
+  - Using the construct `provides external' (which has no semantics) no
+    longer confuses the simulator.
+  - A bug has been fixed that would cause the well-welformness check for
+    system bindings to ignore certain missing bindings.
+  - A bug has been fixed when assigning a value to a formal parameter of
+    a function.
+  - A bug has been fixed in the vm that would cause graph or simulate to
+    hang when using a foreign component that has both provides and
+    requires ports (note: don't do that!).
+  - The test framework can be built using gcc-11.
+  - A bug has been fixed in the code generator when assiging to a local
+    variable that shadows a formal parameter or member variable.
+  - A bug has been fixed in the verifier when creating a new local
+    variable or assigning a variable that remains otherwise unused.
+  - The simulation function now supports injection of foreign
+    components.
+  - The trace produced by running dezyne code is now correct when using
+    injected foreign components.
+  - A bug has been fixed that would cause the verifier to overlook
+    non-determinism in a component.
+  - Using external data in binary expressions is now reported as an
+    error ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/64][#64]]).
+  - The parser no longer reports "<unknown-type>" expected when an
+    external type definition is missing.
+  - The well-formedness check of the parser no longer hangs when a
+    component has the same name as one of its interfaces.
+  - An interface can now have the same name as its namespace.
+
+* Changes in 2.14.0 since 2.13.3
+** Release
+  - Dezyne is now released as free software, under the terms of the GNU
+    Affero General Public Licence, version 3 or later (AGPL3+).  The
+    Dezyne runtime is released under the GNU Lesser General Public
+    License, version 3 or later (LGPL3+).
+  - Dezyne now mostly conforms to the [[https://reuse.software][reuse 3.0]] specification (except
+    where it conflicts with the GNU standard names of license files).
+** Language
+  - The need for temporary variables has been removed for the most
+    common cases; the expression of the `if' and `reply' statement now
+    allows the use of a single valued action or function call.  The '&&'
+    and the '||' operators allow them as their left-hand operand only
+    ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/26][#26]]).
+  - The need for explicit illegals in interfaces has been removed.
+  - The `behaviour' keyword has been deprecated and is renamed to
+    `behavior', as software commonly uses US English.
+** Parser
+  - The well-formedness check now reports incorrect usage of blocking
+    out-bindings.
+  - The well-formedness check now uses `info' for any informational
+    messages that follow an error.
+  - Using a formal binding (<-) with non-data member variable is now
+    reported as an error.
+  - Well-formedness errors are made more consistent.
+** Verification
+  - The interface completeness check has been removed; just like
+    components, unspecified events in an interface behavior are now
+    marked implicitly illegal.
+  - The beginning of a livelock loop is now marked in the trace with
+    "<loop>" ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/44][#44]]).
+  - The dependency on the `m4-cw' tool has been removed from the
+    verification pipeline.
+** Simulation
+  - The beginning of a livelock loop is now marked in the trace with
+    "<loop>" ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/44][#44]]).
+  - In case of a non-compliance error related to mixing inevitable and
+    optional the simulator now reports which events are expected to be
+    inevitable and which are optional in the interface ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/61][#61]]).
+** Code
+  - In the generated C++, the initialization of the meta object in the
+    member initialization list of a component or system uses the address
+    of the meta objects of its ports.  An instance of the Clang compiler
+    reports a false positive when using the -Wuninitialized
+    option. Although the ports have not been initialized at this point
+    the address of a member is valid and can be safely captured. This is
+    now side stepped by deferring the initalization of this field to the
+    body of the constructor.
+** Views
+  - A new command `dzn graph' can be used to generate graphs using
+    different backends: "dependency", "lts", "state", and "system".  The
+    "state" backend now supports hiding of unwanted detail.  The new
+    options `-R,--remove=...' and `-H,--hide=...' can be used to
+    filter-out port state or extended state from the nodes, action
+    transition labels or even all transition labels ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/29][#29]]).
+  - The `dzn explore' command has been deprecated and users are
+    requested to use `dzn graph' instead.  `dzn explore' is planned to
+    be removed in the next release.
+** Documentation
+  - The Dezyne Reference Manual has been largely rewritten and the
+    outdated Dezyne Tutorial has been removed.
+  - The "Well-formedness" chapter has been updated to use the
+    well-formed errors that are actually generated.
+** Noteworthy bug fixes
+  - The use of an undefined variable now produces a parse error.  This
+    regression was introduced in 2.13.3.
+  - The use of an interface enum as event now produces a parse error.
+  - The simulator now also reports a Y-fork: forking a requires-out
+    event to more than one provides ports.
+  - The simulator no longer reports false positives for the interface
+    unobservably non-deterministic check.
+  - The simulator no longer lists events on a blocked port as eligible.
+  - The simulator no longer reports false potitives for the compliance
+    check in the case of a blocking trace with a stateful provides port.
+  - A quadratic performance problem when parsing pre-processed dezyne
+    input has been fixed.
+  - The parser now avoids repeating `stat' calls, improving the
+    performance of parsing large projects on Windows.
+
+* Changes in 2.13.3 since 2.13.2
+** Parser
+  - Using newlines in `dollar'-expressions and toplevel
+    `dollar'-statements is no longer reported as an error.
+** Verification
+  - The length of the command-line used by the verification pipeline has
+    been reduced, allowing Windows users to verify larger models (still
+    up to the [[https://docs.microsoft.com/en-us/troubleshoot/windows-client/shell-experience/command-line-string-limitation][arbitrary 8191 command-line limit]]) ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/31][#31]]):
+    + The `dzn lts' command now has a new --exclude-tau option that is
+      used in the verification pipeline.  This reduces the length of the
+      command-line by about 2/3rds,
+    + The `ltscompare' command as used in the verification pipeline no
+      longer contains duplicate or unused events.  This reduces the
+      length of the command-line in some cases by an order of magnitude.
+** Noteworthy bug fixes
+  - The default model selection for a command no longer considers
+    imported models ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/46][#46]]).
+  - Verification and simulation now have a new check that dissallows
+    non-deterministic behaviour in interfaces which is not directly but
+    indirectly observable by the client.
+  - The new option `--no-interface-determinism' can be used to disable
+    this check on `dzn verify' and `dzn simulate'.
+  - Stateful models with a livelock performed poorly in explore.
+    Therefore state diagrams or LTSses for models with a livelock are
+    now truncated.
+  - On `dzn explore, the `--queue-size' parameter now works.
+  - The deadlock check in the simulator no longer performs a full
+    (expensive) run of all events, greatly improving the performance for
+    some models.
+  - A bug in the simulator was fixed that lead to quadratic duplication
+    of identical traces for each extra event on the input, with dramatic
+    impact on performance ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/52][#52]]).
+  - A bug in the simulator was fixed that lead to unbounded retry of
+    silent event execution.  This regression was introduced in 2.13.2.
+  - A bug in the simulator was fixed that could cause a reply value in a
+    port to be overwritten by the reply value of its component, leading
+    to a wrong and incomprehensible output trace.
+  - A bug in the simulator was fixed that would skip a block when
+    an earlier reply was mistaken for a release.
+  - A bug in the simulator was fixed that would skip a block when
+    flushing the queue.
+  - A bug in the verifier since 2.8.0 was fixed.  It caused back-to-back
+    function calls to produce invalid mCRL2 code.
+  - A bug in the parser has been fixed that allowed using parentheses on
+    actions in an interface; this is now an error (improves [[https://gitlab.com/dezyne/dezyne-issues/-/issues/39][#39]]).
+  - An oversight since 2.10 in the c++ code generator was fixed.
+    Component constructors now default initialize reply values.
+  - The `dzn language' command has been greatly improved ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/38][#38]],[[https://gitlab.com/dezyne/dezyne-issues/-/issues/41][#41]]):
+    + Incomplete or garbled parse-trees are handled more gracefully,
+    + Lookup was rewritten to breadth-first and to allow memoization
+      for better performance,
+    + Lookup now supports bool, subint and extern variables, arguments,
+      event type, formals, expresions, blocking out-bindings, component
+      instances, system bindings, and namespaces,
+    + Completion was rewritten to use type resolving based on context
+      accessors,
+    + Completion now supports bool, subint and extern variables,
+      arguments, assignments, formals, if and else, imports, optional
+      and inevitable, otherwise, port-qualifiers, reply, return, system
+      bindings, and namespaces,
+    + Completion now includes the full type signature when completing
+      triggers ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/51][#51]]),
+    + Completion now better handles incomplete or garbled parse trees,
+    + Two bugs were fixed where completion would enter unbounded
+      recursion,
+    + The `--line' option was added as an alias for `--point',
+    + When using the `-d,--debug' option on `dzn', the relevant parse
+      tree element is shown,
+    + A new `--stress' option was added to test completion in an
+      automated and exhaustive way,
+    + 126 new tests for lookup and completion were added.
+
+* Changes in 2.13.2 since 2.13.1
+** Noteworthy bug fixes
+  - The simulator would produce an invalid split-arrows trace for
+    certain combinations of blocking and external ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/34][#34]]).
+  - In the simulator, events on the input trail now determine when an
+    external event is executed, i.e., taken out of the queue.
+  - On the split-arrows trace, external q-in events are now hidden.
+  - Six new regression-tests on the `external' feature where added along
+    with fixes for the simulator.
+  - The simulator's major performance bottle necks have been addressed
+    ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/36][#36]]).
+  - The simulator now prioritizes errors in the same order as
+    verification does; a possible error trace is always shown.
+  - On `dzn simulate', the `--queue-size' parameter now works.
+  - dzn explore:
+    + A bug that left some states without a label has been fixed,
+    + The "tau" label on tau-transitions has been removed,
+    + Duplicate transitions due to non-determinism are merged.
+
+* Changes in 2.13.1 since 2.13.0
+** Parser
+  - The well-formedness check now reports an error when the ports of a
+    binding have different types.
+** Simulation
+  - The 'dzn simulate' command now supports using --format="diagram"
+    directly.  It also supports the -i,--internal option from `dzn
+    trace' for this.
+  - In interactive mode, the `dzn simulate' command now uses GNU
+    Readline.
+  - When simulating interactively and an async ack is pending, show
+    first observable action triggered by the async ack as eligible
+    event.
+  - In interactive mode, the simulator now prints the action where input
+    is needed to resolve a non-deterministic choice.
+** Noteworthy bug fixes
+  - The C++ and C# runtime has an updated pump that fixes the collateral
+    blocked release that was previously only handled during pump
+    destruction ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/23][#23]]).
+  - The C++ code generator now correctly sets async ranking for thread
+    safe shells.
+  - A bug in verification has been fixed that would sometimes
+    cause invalid mCRL2 code, resulting in a backtrace.
+  - A bug in verification has been fixed that would attempt to add
+    missing void returns to valued functions.
+  - The well-formedness check now reports two more cases of missing
+    returns in a valued function: An else branch without return, and the
+    empty function body.
+  - In the simulator, the location of <q-out> events has been fixed.
+  - In the simulator, a crash related to injected has been fixed in the
+    default split-arrows trace output.
+  - In the simulator, two bugs with respect to scoping function
+    variables have been fixed.
+  - The simulator now skips the (expensive) deadlock check when input is
+    needed to resolve a non-deterministic choice.
+  - A bug in the simulator's trace output has been fixed that caused
+    some eligible event names to be prefixed with "sut." when simulating
+    an interface.
+  - The simulator now updates the provides ports right after flushing
+    async.
+  - The simulator now skips the deadlock check for illegal traces.
+  - The simulator now shows complete split-arrows trace for deadlock
+    errors.
+  - The simulator now supports systems with dangling injected ports,
+    which may happen when simulating a sub system that relies on an
+    injected instance from an outer system.
+  - A bug in the simulator was fixed where a trace needing input leading
+    up to a non-deterministic choice would already include one of the
+    possible choices at the end.
+  - A bug in the simulator was fixed that generated duplicate traces.
+  - The ASCII trace diagram now supports interface traces.
+
+* Changes in 2.13.0 since 2.12.0
+** Simulation
+  - Interactive use is now supported, it is started when invoked without
+    input trail.
+  - The input trail may now be sparse, only the input needed to resolve
+    non-deterministic choices is required.
+  - The split-arrows trace format is now used by default.  It includes
+    the provides port trace.
+  - The eligible events are printed at the end of the trace.
+  - Invalid input (garbage) on the trail is marked as an error.
+  - All verification problems are detected and reported, notably:
+    + async livelock,
+    + failures model refusals,
+    + forking a call from one provides port to another provides port,
+    + a second async req, while a previous ack is still pending,
+    + a reply on a modeling event in an interface.
+  - A provides port that uses silent events is now supported.
+** Commands
+  - The `dzn trace' command has two new output formats:
+    + --format=json provides P5 output for integration with Dezyne-IDE,
+    + --format=ascii provides an trace diagram.
+  - The JSON output for the state diagram now produces actions and state
+    as structured data.
+** Verification
+  - Enum literals in the verification trace now use a colon as separator
+    between the enum-type and enum-field.  This resolves a long standing
+    ambiguity in the trace format.
+  - The verification standard output is now adds the model name next to
+    the trace.
+  - The trace is now marked with a <label> indicating the problem found
+    during verification.
+  - Verbose output is written to standard error.
+  - The `--json' option has been removed.
+  - Async livelocks, i.e., defer.ack () => defer.req () are now
+    detected and reported.
+** Code generation
+  - The C++ code generator has been updated to support the new enum
+    literal representation.
+  - The C# runtime has been updated to support the new enum literal
+    representation.
+  - The experimental C code generator now properly supports systems,
+    foreign components and namespaces.
+  - The C# runtime now defines a generic async interface; async
+    interfaces are no longer generated.
+** Noteworthy bug fixes
+  - A type mismatch is now also properly reported when attempting an
+    enum field access on a boolean ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/19][#19]]).
+  - An undefined function is now also properly reported for a function
+    call that has arguments ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/18][#18]]).
+  - Verification now reports a livelock with async.
+  - In the simulator, for a requires out event on a model with multiple
+    provides ports, all provides ports are now being updated.
+  - In the preprocessor, an off-by-one line count error has been fixed
+    for deeply nested imports.
+  - Generating code using a calling context for a model that uses
+    dzn.async is now supported ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/20][#20]]).
+  - Using the same async interface with parameters more than once no
+    longer triggers a well-formedness error.
+  - The C++ and C# code generators no longer create structs or classes
+    for async interfaces with parameters.
+  - Using an early return pattern in a function now no longer reports a
+    false positive <livelock> or <second-reply> error ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/27][#27]]).
+  - The C++ and C# runtime and pump now queue events that are sent to a
+    blocked port ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/23][#23]]).
+  - The C++ and C# runtime no longer releases collaterally blocked ports
+    early, avoiding "component already handling an event" ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/23][#23]]).
+
+* Changes in 2.12.0 since 2.11.0
+** Commands
+  - A new command 'dzn explore' can be used to create LTSs and accurate
+    state diagrams of interfaces, components and systems.
+  - A new command 'dzn simulate' provides a basic system simulator.
+  - Code completion now supports boolean expressions in (partial) guards
+    and (partial) enum field tests.
+** Parser
+  - The `dzn parse' command has a new option: --list-models.
+  - The import file-name now supports relative directories.
+** Verification
+  - The verification pipeline was refactored and opened-up:
+    + The actual pipeline commands are shown when running `dzn -d verify
+      ...', ready for use on the command line.
+    + The dzn verify command now has a new '--out=FORMAT' option to
+      produce intermediate verification output of a certain FORMAT.
+** Code generation
+  - Code generation has been cleaned-up.
+    + Language packs are now supported.
+    + The code generators produce less gratuitous whitespace.
+    + The code indenter cleans-up orphan parentheses when generating
+      Scheme code.
+  - The C# code generator (language CS) has been resurrected.
+  - The generated code now provides  basic provenance by adding a
+    `Generated by dzn code from <file-name>' comment, removing any
+    question of copyright.  Protip: for reproducible output, use a
+    relative dezyne file name.
+  - The json code generator (for the system diagram) now strips
+    behaviours and leaf-locations.
+** Language
+  - Lookup of imports is now supported.
+  - Completion of guard expressions and field-tests are now supported.
+** Build
+  - Building with Guile 3.0.5 and guile-json-4 is now supported.
+** Noteworthy bug fixes
+  - Unresolved imports are handled ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/6][#6]]).
+  - Duplicate imports when using different directory prefixes ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/7][#7]]).
+  - A regression has been fixed that caused parsing of a system with
+    many imports (> 20) to become very slow ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/8][#8]]).
+  - c++ thread_pool support is now off by default, like it should be ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/10][#10]]).
+  - Using a synchronous callback in the context of a thread safe shell
+    has been fixed for c++ and scheme.
+  - A bug has been fixed in parsing verification traces with flushes
+    occurring in a namespace ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/11][#11]]).
+  - Triggering an illegal using a synchronous callback in the context of
+    dzn.async has been fixed ([[https://gitlab.com/dezyne/dezyne-issues/-/issues/12][#12]]).
+  - In `dzn language', any line-column separator can be used with the
+    `--point=' option; using a comma no longer gives unexpected results.
+
+* Changes in 2.11.0 since 2.10.1
+** Commands
+  - A new command `dzn language' supports DZN-language completion and
+    lookups.
+  - The commands `dzn cat and `dzn ls' have been removed.
+** Parser
+  - A well-formedness check was added for trigger, action, and
+    function-call arguments.
+
+* Changes in 2.10.1-thermo-fisher since 2.10.1
+** Code generation
+  - The C++ runtime now provides an optional thread pool in
+    "runtime/c++/thread_pool.cc".
+  - The pump in the C++ runtime can now optionally uses a the new
+    thread pool by compiling with "-D DZN_THREAD_POOL=1".
+  - The language "c++ew" has been added for Thermo Fisher Scientific.
+
+* Changes in 2.10.1 since 2.10.0
+** Usability
+  - The dzn command now exits gracefully when given an unknown command.
+  - The dzn-mode for GNU Emacs is now a major mode called "Dezyne".
+** Parser
+  - Parse errors in imported dzn-files now show the import inclusion
+    path.
+  - Using newlines between `dollar'-expressions and toplevel
+    `dollar'-statements is now an error.
+** Code generation
+  - Performance has been improved.
+  - The C++ code generator is now prepared for C++20: The
+    dzn::port::meta fields are renamed to "provide" and "require".
+  - The Scheme code generator uses the "namespace to module" feature.
+    This code generator is experimental, and not available in the
+    regular binary release.
+  - The JavaScript code generator uses the "namespace to module"
+    feature.  This code generator is experimental, and not available in
+    the regular binary release.
+** Documentation
+  - The infocenter has been converted to texinfo and is now included in
+    the release.
+** Noteworthy bug fixes
+  - Fixed a regression of using two different types of async interface
+    in one behaviour.
+
+* Changes in 2.10.0 since 2.9.1
+** Dezyne is now stand alone, client only, serverless, pure GNU Guile Scheme.
+  - Removed: server, services, dzn, dzn/daemon
+    + 20,000 LOC JavaScript.
+    + 800 LOC of Shell
+  - Replaced parser and component-interpreter
+    + 2,000 LOC flex/bison
+    + 86,050 LOC C++
+      . of which 32,000 handwritten
+      . 50,000 generated by 4,200 LOC of TCL input
+    + 2,000 LOC of TCL
+    + 4,200 LOC of TCL input
+    + 200 LOC of Python
+    + 700 LOC of Perl
+    with PEG parser and system-simulator by 4,000 LOC of Scheme.
+  - The new Scheme-only, client-only (serverless) Dezyne git archive
+    was grafted onto the historical development.git; that in turn was
+    built on Gaiag (https://gitlab.com/janneke/gaiag), which is still
+    at the root of this archive.
+** Parser
+  - All error messages were changed.
+  - "Use before declare" is no longer supported for variables.
+  - Toplevel `dollar`-statements used inside a namespace are now
+    rejected.
+** Code generation
+  - C++: The tracing interface was changed, notably the "dzn::trace_in"
+    function was renamed to "dzn::trace".
+  - C++: Experimental state-variable tracing was disabled.
+  - Other languages were dropped.
+** Component simulator
+  - The component simulator was removed.
+*** Noteworthy bug fixes
+  - Fixed a bug where function calls immediately following an if
+    statement were not considered by the verifier
+  - Fixed a bug where an enum-field test used as the expression in a
+    reply statement would crash the verifier.
+  - Fixed a bug where a boolean "not" used as the expression in a
+    reply statement was ignored.
+  - Fixed a bug with precedence in deeply nested boolean expresisons
+    in generated code.
+
+* Changes in development since 2.9.1
+   It contains work in progress and is not intended for evaluation or
+   production use.
+
+* Changes in 2.9.1 (since 2.9.0)
+** Verification: reduce memory usage by one order of magnitude:
+   Allows models with a larger state space to be verified.
+** Verification: improved error reporting:
+   Internal errors and out of memory error are now reported as such.
+** Verification: fix for issue 7547:
+   Compliance now succeeds when using async in the middle of two
+   provides out events on a single modeling event in the interface.
+** Code: fix for issue 7529:
+   C++: a reply with a port prefix can be used anywhere, not just in a
+   blocking context.
+** Code: fix for issue 7527:
+   C++: parameterized events can be used with dzn::shell
+
+* Changes in 2.9.0 (since 2.8.1)
+** Reintroduction of C#.
+** For C++ fix the use of injected in combination with thread safe shell.
+
+* Announcement: discontinuation of 2.7.x
+  - 2.7.x has been discontinued as of November 2018
+  - With the full verification support in 2.8.0, the 2.7.x was
+    declared deprecated.  2.7 was intended as a verification preview
+    release series while working on the transition to mCRL2 based
+    verification.
+
+* Changes in 2.8.2 (since 2.8.1)
+** Code generation
+  - C++: fixed 7505 Namespaces and system components
+  - C++: fixed 7509 local variables within blocking cause a failure in
+    the code generator
+  - C++: fixed 7518 System with component with multiple injected
+    interfaces generates double component instantiations
+  - fixed shadowing a member variable with an interface declared event
+    parameter
+
+* Changes in 2.8.1 (since 2.8.0)
+** Verification
+  - Fixed the combined use of async and blocking
+
+* Changes in 2.8.0 (since 2.7.2)
+** Verification
+  - Full verification support based on mCRL2 (http://mcrl2.org), see
+    https://hosting.verum.com/regression/2.8.0.
+  - The async feature has been officially released, see
+    https://hosting.verum.com/doc/?searchWord=async.
+  - The semantics of silent modeling events is now more strict and
+    enforced by a new well-formedness check.
+  - The 2.8.0-verification service is implicitly used for previous
+    service releases.
+** Service selection
+  - The dzn COMMAND --version option now also accepts --version=MAJOR
+    and --version=MAJOR.MINOR.
+  - dzn query command now also shows MAJOR and MAJOR.MINOR service
+    versions.
+** Code generation
+  - C++ code and runtime now embed the service version.
+  - Several fixes for usage of foreign components.
+  - INTERFACE_ONLY has been removed from the C++ code generators.
+  - Skeleton code for foreign components are now generated inline;
+    no longer in a separate skel_ file.
+** ASD Converter
+   - The ASD converter now fixes an issue with shadowing of member
+     variables.
+** Noteworthy bug fixes
+  - Several namespace bugs have been fixed, supported usage includes
+    tests in https://hosting.verum.com/regression/2.8.0
+     + hello_interface_namespace.dzn
+     + hello_namespace_enum.dzn
+     + foreign.dzn
+     + inner_space.dzn
+     + namespace_assert.dzn
+     + name_space.dzn
+  - Several bugs have been fixed in the --glue=dzn code generator.
+
+* Changes in 2.7.2 (since 2.7.1)
+** Verification
+  - The verification performance has been improved by a factor 3-4, especially
+    for large models. For an interface, the deadlock and livelock checks are
+    performed in parallel. For a component, the determinisctic, illegal,
+    deadlock, and livelock checks are performed in parallel.
+  - The verification results view reports per check the number of states and
+    transitions that have been considered.
+** Known issues
+  - In some corner cases, nested function calls will cause a failing
+    verification.
+  - The language features blocking, external and
+    async are not yet available for verification, see
+    https://hosting.verum.com/regression/2.7.2/regression.html.
+  - For verification, when selecting version 2.7.0 or 2.7.1, version 2.7.2 is
+    used instead.
+
+* Changes in 2.7.1 (since 2.7.0)
+** Verification
+  - The dezyne verification now supports models with multiple provides ports.
+  - Functions with parameters are verified correctly now.
+** Code generation
+  - Code generation for c++-msvc11 has been fixed.
+** Known issues
+  - The language features blocking, external and
+    async are not yet available for verification, see
+    https://hosting.verum.com/regression/2.7.1/regression.html.
+* Changes in 2.7.0 (since 2.6.1)
+** Verification
+  - The Dezyne verification engine has been replaced by mCRL2, see
+    http://mcrl2.org.
+  - Interface completeness verification is performed as part of the
+    deadlock check.
+  - Verification counter examples may differ from previous versions.
+** Known issues
+  - The language features multiple provides, blocking, external and
+    async are not yet available for verification, see
+    https://hosting.verum.com/regression/2.7.0/regression.html.
+  - The verification feature has been discontinued for all older
+    releases.
+  - Verification performance has not been fully optimized.
+** Code generation
+  - Performance of the code generator has been improved significantly.
+
+* Changes in 2.6.1 (since 2.6.0)
+** Code generation
+  - The c++ code now avoids triggering some Visual Studio compiler warnings.
+  - Calling context has been enhanced.
+** ASD Converter
+   - The ASD converter now forwards user-defined includes to DZN.
+
+* Changes in 2.6.0 (since 2.5.3)
+  - The interpreter now shows the content of the queues in the
+    watch-window.
+** Command line client
+  - The ‘dzn hello’ command now returns with a dedicated exit status 3
+    in case no server connection could be made
+** Model verification
+  - All models in a DZN file are now verified by default, unless the
+    explicit ‘-m,--model=MODEL’ option is used.
+  - The --queue_size option (broken since 2.5.0) has been fixed
+** Verification view
+  - The new verification view displays for each check the number of
+    states and transitions the verification engine had to consider.
+** Documentation
+  - The text of the DZN files in the regression test matrix can now be
+    downloaded.
+
+* Changes in 2.5.3 (since 2.5.2)
+** Noteworthy bug fixes
+  - Globally declared enums which are not used as event reply type
+    no longer cause a crash in verification (bug introduced in 2.5.0)
+  - dzn convert now has a ‘--glue’ option.  The glue namespace is
+    only added when this option is used.
+** Code generation
+  - c++* only depends on pump when blocking or async are used
+  - this relaxes the boost dependency on 1.58+ for coroutine to any
+    previous version supporting bind, function and tuple.
+
+* Changes in 2.5.2 (since 2.5.1)
+** Code generation
+  - c++* fix void event in thread safe shell
+
+* Changes in 2.5.1 (since 2.5.0)
+** Code generation
+  - c++* thread safe shell now supports enum and subint reply types
+
+* Changes in 2.5.0 (since 2.4.1)
+** Code generation
+  - The javascript code generator now uses file2file mode.
+  - The c++ code generator passes ASD construction parameters via glue.
+  - The c++ code generator skips retrieving the pump pointer when
+    async is not used.
+  - The c++03 code generator now supports thread safe shell, but only
+    if there is enough c++11 support available in the compiler.
+  - The c, c#, java, java7, python and scheme code generators are not
+    available in this release; for these languages please use 2.4.1 or
+    earlier.
+** ASD Converter
+   - The ASD converter produces ‘.map’ files for Components with
+     construction parameter information that is used by the glue code
+     generator.
+** Known issue:
+   - Global declared enum not referenced as a reply type not supported
+     in verification.
+   - The queue_size option gives an error: ‘gdzn: no such option: -q’
+
+* Changes in 2.4.1 (since 2.4.0)
+** DZN language
+  - Dollar expressions can now be used at toplevel
+** Code generation
+  - The c++03 runtime now uses a boost-compatible workaround for
+    lacking move semantics
+  - Using ‘reply()’ in a function called from a ‘blocking’ context
+    has been fixed
+** Verification
+  - The queue_size option has been fixed
+
+* Changes in 2.4.0 (since 2.3.4)
+** Code generation
+  - The c++ code generators use file2file mode by default
+    Generating code for a DZN file ‘model.dzn’ now produces
+    ‘model.hh’ and ‘model.cc’
+  - The c# runtime now has a ‘check_bindings’ function
+  - The interface of the c++ and c++03 runtime has been modified
+  - The container interface the c++ languages (‘container.hh’) has been changed
+  - The c++03 code generator now supports ‘blocking’
+  - The c++03 code now depends on boost 1.58 or newer
+** Model verification
+  - Verification performance of some models has been improved
+** Noteworthy bug fixes
+  - Authentication with the dzn client is robust against parallel execution
+  - Handle output from model checker where lines are broken in two
+    parts (https://zoho.verum.com/7327)
+  - Dollar expressions can now contain DZN keywords
+    (https://zoho.verum.com/7310)
+  - Parameters in on-clauses for unused notification events are no
+    longer removed  (https://zoho.verum.com/7309)
+  - The ASD converter now renames variables that conflict with DZN
+    keywords (https://zoho.verum.com/7308)
+  - Type declarations can now appear anywhere at the toplevel of a
+    behaviour (https://zoho.verum.com/6747)
+
+* legalese
+
+Copyright © 2017,2018,2019,2020,2021,2022,2023,2024 Janneke Nieuwenhuizen <janneke@gnu.org>
+Copyright © 2017,2018,2019,2020,2021,2022,2023 Rutger van Beusekom <rutger@dezyne.org>
+Copyright © 2018,2019 Rob Wieringa <rma.wieringa@gmail.com>
+
+  Copying and distribution of this file, with or without modification,
+  are permitted in any medium without royalty provided the copyright
+  notice and this notice are preserved.
+
+Please send Dezyne bug reports to bug-dezyne@nongnu.org.

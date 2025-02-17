@@ -1,0 +1,8 @@
+
+[package]
+sources = ["src"]
+name = "Example_06C"
+
+[language]
+standard = "1.2"
+profiles = ["C++"]

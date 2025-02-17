@@ -1,0 +1,38 @@
+external type ValveParameters
+
+port ValveHAL {
+  enum Moves {
+    case Open
+    case Close
+  }
+
+  function setParameters(setup : ValveParameters) : Bool
+  function move(target : Moves) : Nil
+  function isMoving() : Bool
+
+  @ignoreWarning(Warning.Usability)
+  machine {
+    state Initial {
+      // Accept or reject valve parameters and remember result
+      setParameters(_) = nondet {
+        {
+          setNextState(Ready);
+          return true;
+        },
+        {
+          return false;
+        },
+      }
+    }
+
+    state Ready {
+      move(_) = setNextState(Moving)
+      isMoving() = false
+    }
+
+    state Moving {
+      MoveFinished: spontaneous = setNextState(Ready)
+      isMoving() = true
+    }
+  }
+}

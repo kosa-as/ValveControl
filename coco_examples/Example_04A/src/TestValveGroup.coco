@@ -1,0 +1,16 @@
+import unqualified SimulatorImpl
+import unqualified ValveController
+import unqualified ValveControllerImpl
+
+@runtime(.MultiThreaded)
+component TestValveGroup {
+  val client : Provided<ValveController>
+
+  val valve : ValveControllerImpl
+  val hal : SimulatorImpl
+
+  init() = {
+    connect(client, valve.client);
+    connect(valve.hal, hal.client);
+  }
+}

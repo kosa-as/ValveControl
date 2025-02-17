@@ -1,0 +1,100 @@
+// Dezyne --- Dezyne command line tools
+//
+// Copyright © 2022 Rutger van Beusekom <rutger@dezyne.org>
+//
+// This file is part of Dezyne.
+//
+// Dezyne is free software: you can redistribute it and/or modify it
+// under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// Dezyne is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public
+// License along with Dezyne.  If not, see <http://www.gnu.org/licenses/>.
+//
+// Commentary:
+//
+// This is an example of a cruise control system.  Usually a cruise
+// control system centers around the PID feedback control loop where
+// functional requirements like reaching and maintaining the set
+// velocity comfortably, i.e. with the proper stability and
+// responsiveness.  Here we abstract away from those specific
+// requirements and focus on the interactions between the different
+// actors in the system represented as the HMI, the pedals and the
+// throttle actuator.
+//
+// Note that the throttle actuator can be viewed as representing the
+// actual PID control loop.
+//
+// Code:
+
+import cruise-control-interfaces.dzn;
+
+component cruise_control
+{
+  provides ihmi hmi;
+  requires ipedals pedals;
+  requires ithrottle throttle;
+  requires itimer timer;
+
+  behavior
+  {
+    [hmi.state.Disabled] {
+      on hmi.enable():
+      {
+        bool ignore = pedals.enable();
+      }
+      on hmi.disable(): {}
+    }
+    [!hmi.state.Disabled] {
+      on hmi.enable(): {}
+      on hmi.disable(): {
+        throttle.reset();
+        timer.cancel();
+        pedals.disable();
+      }
+    }
+    [hmi.state.Enabled && timer.idle] {
+      [pedals.engaged] on hmi.set(): {/* ignore */}
+      [!pedals.engaged] on hmi.set(): {
+        throttle.set();
+        timer.start();
+      }
+      on hmi.resume(): {
+        [pedals.engaged || !hmi.setpoint.Set] {/* ignore */}
+        [otherwise] {
+          throttle.set();
+          timer.start();
+        }
+      }
+    }
+    [!hmi.state.Enabled || !timer.idle] {
+      on hmi.set(): {}
+      on hmi.resume(): {}
+    }
+    on timer.timeout(): {
+      if(!hmi.state.Active) illegal;
+      throttle.set();
+    }
+    on hmi.cancel(): {
+      throttle.reset();
+      timer.cancel();
+    }
+    on pedals.engage()
+      , throttle.unset(): {
+      if(hmi.state.Active) hmi.inactive();
+      throttle.reset();
+      timer.cancel();
+    }
+    on pedals.disengage(): {
+      if(hmi.state.Active) {
+        hmi.inactive();
+      }
+    }
+  }
+}

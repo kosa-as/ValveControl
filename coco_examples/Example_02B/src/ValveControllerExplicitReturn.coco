@@ -1,0 +1,35 @@
+port ValveController {
+  function setup() : Nil
+  function open() : Nil
+  function close() : Nil
+  function isOpen() : Bool
+  function isClosed() : Bool
+
+  machine {
+    isOpen() = nondet {
+      {
+        return true;
+      },
+      {
+        return false;
+      },
+    }
+    isClosed() = nondet {
+      {
+        return true;
+      },
+      {
+        return false;
+      },
+    }
+
+    state Initial {
+      setup() = setNextState(Operational)
+    }
+
+    state Operational {
+      open() = {}
+      close() = {}
+    }
+  }
+}

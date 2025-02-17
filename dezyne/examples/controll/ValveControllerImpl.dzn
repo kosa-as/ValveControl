@@ -1,0 +1,34 @@
+import ValveController.dzn;
+import ValveHAL.dzn;
+
+component ValveControllerImpl {
+  provides ValveController client;
+  requires ValveHAL hal;
+  
+  behavior
+  {
+    enum implState{Initial, Unknown, Opened, Closed};
+    implState s=implState.Initial;
+    [s.Initial]
+    {
+      on client.setup(): s=implState.Unknown;
+    }
+
+    [s.Unknown]
+    {
+      on client.open(): {hal.move($ValveHAL::Moves::Open$); s=implState.Opened;}
+      on client.close(): {hal.move($ValveHAL::Moves::Close$); s=implState.Closed;}
+    }
+
+    [s.Opened]
+    {
+      on client.close(): {hal.move($ValveHAL::Moves::Close$); s=implState.Closed;}
+    }
+
+    [s.Closed]
+    {
+      on client.open(): {hal.move($ValveHAL::Moves::Open$); s=implState.Opened;}
+    }
+  }
+}
+

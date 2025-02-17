@@ -1,0 +1,45 @@
+import unqualified ValveHAL
+
+port ValveController {
+  function setup(settings : ValveParameters) : Bool
+  function open() : Nil
+  function close() : Nil
+  function isOpen() : Bool
+  function isClosed() : Bool
+
+  machine {
+    enum Position {
+      case Opened
+      case Closed
+      case Unknown
+    }
+
+    var position : Position = .Unknown
+
+    isOpen() = position == .Opened
+    isClosed() = position == .Closed
+
+    state Initial {
+      setup(_) = nondet {
+        InvalidParameters:
+        {
+          return false;
+        },
+        ValidParameters:
+        {
+          setNextState(Operational);
+          return true;
+        },
+      }
+    }
+
+    state Operational {
+      open() = {
+        position = .Opened;
+      }
+      close() = {
+        position = .Closed;
+      }
+    }
+  }
+}

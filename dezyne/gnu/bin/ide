@@ -1,0 +1,21 @@
+#!/gnu/store/v3a04xgavr2nphazhk87mhxxmyyzzzds-guile-patched-3.0.8-6.cc45597/bin/guile --no-auto-compile
+-*- scheme -*-
+!#
+;;; Verum-Dezyne --- An IDE for Dezyne
+;;;
+;;; Copyright © 2020 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+;;;
+;;; This file is part of Verum-Dezyne.
+;;;
+;;; Verum-Dezyne is property of Verum Software Tools BV <support@verum.com>.
+;;; All rights reserved.
+
+;;
+;;; Commentary:
+;;;
+;;; Code:
+
+(set! %load-path (append '("/gnu/store/nx6cnpgrlzzmak40crrijl8zj28im8jq-verum-dezyne-mingw-2.18.3/share/guile/site/3.0") %load-path))
+(set! %load-compiled-path (append '("/gnu/store/nx6cnpgrlzzmak40crrijl8zj28im8jq-verum-dezyne-mingw-2.18.3/lib/guile/3.0/site-ccache") %load-compiled-path))
+
+((@ (ide script) main) (command-line))

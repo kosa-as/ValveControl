@@ -1,0 +1,43 @@
+#!/gnu/store/4y5m9lb8k3qkb1y9m02sw9w9a6hacd16-bash-minimal-5.1.8/bin/sh
+
+# SCMackerel --- A GNU Guile front-end for mCRL2
+# Copyright © 2020, 2022 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+#
+# This file is part of SCMackerel.
+#
+# SCMackerel is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or (at
+# your option) any later version.
+#
+# SCMackerel is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with SCMackerel.  If not, see <http://www.gnu.org/licenses/>.
+
+if test "$1" = "--help"; then
+    cat <<EOF
+Usage: scm2lts [OPTION]... FILE
+  --help             display this help
+  --version          display version
+EOF
+    exit 0
+fi
+
+if test "$1" = "--version"; then
+    cat <<EOF
+scm2lts (SCMackerel) 0.0
+Copyright (C) 2020-2022 the SCMackerel authors
+
+License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+EOF
+    exit 0
+fi
+
+scm=${1-examples/there.scm}
+guile -L . -C . ${scm} | mcrl22lps | lps2lts --save-at-end --out=aut - -

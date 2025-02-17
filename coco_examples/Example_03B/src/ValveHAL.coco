@@ -1,0 +1,23 @@
+external type ValveParameters
+
+port ValveHAL {
+  enum Moves {
+    case Open
+    case Close
+  }
+
+  function setParameters(setup : ValveParameters) : Bool
+  function move(target : Moves) : Nil
+
+  machine {
+    var isValidSetup : Bool
+
+    // Accept or reject valve parameters and remember result
+    if (!isValidSetup) setParameters(_) = isValidSetup = nondet {
+      true,
+      false,
+    }
+    // Move valve if parameters are valid
+    if (isValidSetup) move(_) = {}
+  }
+}

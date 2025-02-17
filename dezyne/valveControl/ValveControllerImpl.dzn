@@ -1,0 +1,50 @@
+import ValveController.dzn;
+import ValveHAL.dzn;
+
+component ValveControllerImpl {
+  //提供阀门控制所需要的控制软件应用层
+  provides ValveController valveController;
+  //需要阀门的端口申明
+  requires ValveHAL valveHAL;
+  
+  behavior
+  {//状态机，下面的状态转移
+
+    enum implState{Initial, Unknown, Opened, Closed};
+
+    implState state=implState.Initial;
+    [state.Initial]
+    {
+      on valveController.setup(): state=implState.Unknown;
+    }
+
+    [state.Unknown]
+    {
+      on valveController.open(): {
+        valveHAL.move($ValveHAL::Moves::Open$); 
+        state=implState.Opened;
+      }
+      on valveController.close(): {
+        valveHAL.move($ValveHAL::Moves::Close$); 
+        state=implState.Closed;
+      }
+    }
+
+    [state.Opened]
+    {
+      on valveController.close(): {
+        valveHAL.move($ValveHAL::Moves::Close$); 
+        state=implState.Closed;
+      }
+    }
+
+    [state.Closed]
+    {
+      on valveController.open(): {
+        valveHAL.move($ValveHAL::Moves::Open$); 
+        state=implState.Opened;
+      }
+    }
+  }
+}
+

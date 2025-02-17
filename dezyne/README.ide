@@ -1,0 +1,21 @@
+Binary Verum-Dezyne distribution
+
+Find more information here:
+
+   https://doc.verum.com/
+   https://doc.verum.com/documentation.html
+   https://doc.verum.com/verum-dezyne/manual/verum-dezyne/html_node/Binary-Installation.html
+
+Getting started:
+
+   https://doc.verum.com/verum-dezyne/manual/verum-dezyne/html_node/Getting-Started.html
+
+Try:
+
+  ./ide hello
+  ./ide simulate examples/hello.dzn
+  ./ide verify examples/Camera.dzn
+
+See also NEWS.ide and the examples directory.
+
+Verum-Dezyne includes the Dezyne command-line, see the file README.

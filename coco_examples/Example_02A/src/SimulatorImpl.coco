@@ -1,0 +1,16 @@
+import CPP
+import unqualified ValveHAL
+
+// Access to the stdlib function std::this_thread::sleep_for
+@CPP.mapToValue("std::this_thread::sleep_for", .System("thread"))
+external function sleep(t : Duration) : Nil = {}
+
+@runtime(.MultiThreaded)
+component SimulatorImpl {
+  val client : Provided<ValveHAL>
+
+  machine {
+    client.move(_) = sleep(seconds(10))
+  }
+}
+

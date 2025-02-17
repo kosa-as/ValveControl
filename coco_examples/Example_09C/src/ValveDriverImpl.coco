@@ -1,0 +1,48 @@
+import unqualified ValveDriver
+import unqualified ValveHAL
+
+@runtime(.MultiThreaded)
+component ValveDriverImpl {
+  val client : Provided<ValveDriver>
+  val hal : Required<ValveHAL>
+
+  machine {
+    var valveParameters : Slot<ValveParameters>
+
+    state Initial {
+      client.setup(settings : ValveParameters) = {
+        valveParameters = settings;
+        setNextState(Ready);
+        return true;
+      }
+    }
+
+    // Valve ready to move
+    state Ready {
+      client.open() = perhapsMove(.Open)
+      client.close() = perhapsMove(.Close)
+
+      function perhapsMove(target : ValveHAL.Moves) : Nil = {
+        if (hal.move(target, valveParameters)) setNextState(Moving(target)) else client.endOfMovement(.Error)
+      }
+    }
+
+    // Asynchronously execute the synchronous valve movement
+    state Moving(target : ValveHAL.Moves) {
+      var shutdown : Bool
+
+      unused() = {
+        shutdown = true;
+      }
+
+      periodic(milliseconds(500)) = if (!hal.isMoving()) setNextState(if (shutdown) Terminated else Ready)
+
+      exit() = {
+        client.endOfMovement(match (target) {
+          .Open => .Opened,
+          .Close => .Closed,
+        });
+      }
+    }
+  }
+}

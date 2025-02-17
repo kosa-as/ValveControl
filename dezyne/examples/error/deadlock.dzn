@@ -1,0 +1,59 @@
+// Dezyne --- Dezyne command line tools
+//
+// Copyright © 2021, 2023 Rutger van Beusekom <rutger@dezyne.org>
+// Copyright © 2021 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+//
+// This file is part of Dezyne.
+//
+// Dezyne is free software: you can redistribute it and/or modify it
+// under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// Dezyne is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public
+// License along with Dezyne.  If not, see <http://www.gnu.org/licenses/>.
+//
+// Commentary:
+//
+// Here is an example of a model that deadlocks.  The interface has a
+// bye event in the !idle state to avoid the interface from deadlocking
+// due to the world event not occurring since it is optional.  Because
+// the optional world is not guaranteed to occur and component does not
+// accept or use the bye event on either port this model has a potential
+// deadlock.
+//
+// Code:
+
+interface ihelloworld
+{
+  in void hello();
+  in void bye();
+  out void world();
+
+  behavior
+  {
+    bool idle = true;
+    [idle] on hello: idle = false;
+    [!idle] {
+      on bye: idle = true;
+      on optional: {idle = true; world;}
+    }
+  }
+}
+
+component deadlock
+{
+  provides ihelloworld h;
+  requires ihelloworld w;
+
+  behavior
+  {
+    on h.hello(): w.hello();
+    on w.world(): {}
+  }
+}

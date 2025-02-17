@@ -1,0 +1,41 @@
+// Verum-Dezyne --- An IDE for Dezyne
+//
+// Copyright © 2019,2020 Rob Wieringa <Rob.Wieringa@verum.com>
+// Copyright © 2019 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+//
+// This file is part of Verum-Dezyne.
+//
+// Verum-Dezyne is property of Verum Software Tools BV <support@verum.com>.
+// All rights reserved.
+
+import daemon/daemon.dzn;
+import view/view.dzn;
+
+component Start
+{
+ requires daemon.Istart start;
+}
+component Command
+{
+  provides daemon.Icommand command;
+}
+
+component ClientControl
+{
+  requires view.Icontrol control;
+}
+
+component Client_side {
+  system {
+    daemon.Daemon daemn;
+    view.View vw;
+
+    Start start;
+//    Command command;
+    ClientControl control;
+
+    daemn.start <=> start.start;
+//    daemn.command <=> command.command;
+    vw.control <=> control.control;
+  }
+}

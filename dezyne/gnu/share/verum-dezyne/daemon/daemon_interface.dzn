@@ -1,0 +1,168 @@
+// Verum-Dezyne --- An IDE for Dezyne
+//
+// Copyright © 2019,2020 Rob Wieringa <Rob.Wieringa@verum.com>
+// Copyright © 2019,2020,2021 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+// Copyright © 2020 Paul Hoogendijk <paul.hoogendijk@verum.com>
+// Copyright © 2021 Rutger van Beusekom <rutger.van.beusekom@verum.com>
+//
+// This file is part of Verum-Dezyne.
+//
+// Verum-Dezyne is property of Verum Software Tools BV <support@verum.com>.
+// All rights reserved.
+
+import ../transport/transport_interface.dzn;
+
+namespace daemon {
+
+  extern config_t $*unspecified*$;
+  extern command_t $*unspecified*$;
+  extern data_t $*unspecified*$;
+  extern event_t $*unspecified*$;
+  extern error_t $*unspecified*$;
+  extern id_t $*unspecified*$;
+  extern index_t $*unspecified*$;
+  extern instance_t $*unspecified*$;
+  extern label_t $*unspecified*$;
+  extern location_t $*unspecified*$;
+  extern message_t $*unspecified*$;
+  extern notification_t $*unspecified*$;
+  extern request_t $*unspecified*$;
+  extern selection_t $*unspecified*$;
+
+  interface Istart {
+    in void setup(config_t iconfig, config_t vconfig, config_t econfig);
+    out void set_up();
+    out void error(error_t e);
+
+    behavior {
+      enum State {Initial, Setup };
+      State state = State.Initial;
+
+      [state.Initial] {
+        on setup: { set_up; state = State.Setup; }
+        on setup: { error; state = State.Setup; }
+      }
+      [state.Setup] {
+        on setup: {} // allow; avoid deadlock
+      }
+    }
+  }
+
+  interface Iview_data2event {
+    in void wrap(label_t label, data_t data);
+    out void wrapped(data_t data);
+
+    in void unwrap(data_t data);
+    out void request(request_t request);
+    out void selected(selection_t selection);
+    out void index_selected(selection_t selection);
+    out void back();
+    out void event(event_t event);
+
+    behavior {
+      on wrap: wrapped;
+      on unwrap: request;
+      on unwrap: selected;
+      on unwrap: index_selected;
+      on unwrap: back;
+      on unwrap: event;
+    }
+  }
+
+  interface Icommand_data2event {
+    in void wrap(label_t label, data_t data);
+    out void wrapped(data_t data);
+
+    in void unwrap(data_t data);
+    out void command(command_t cmd);
+
+    behavior {
+      on wrap: wrapped;
+      on unwrap: command;
+    }
+  }
+
+  interface Ieditor {
+    in void go_to_location(location_t loc);
+    behavior {
+      on go_to_location: {}
+    }
+  }
+
+  interface Ieditor_data2event {
+    in void wrap(label_t label, data_t data);
+    out void wrapped(data_t data);
+
+    in void unwrap(data_t data);
+
+    behavior {
+      on wrap: wrapped;
+      on unwrap: {}
+    }
+  }
+
+  interface Iverify2event {
+    in bool has_trace(data_t data);
+    behavior {
+      on has_trace: reply(true);
+      on has_trace: reply(false);
+    }
+  }
+
+  interface Irouting {
+    in void storedata2viewlabel(data_t data, out label_t label);
+    in void storedata2viewdata(data_t data, out data_t out_data);
+    in void viewlabel2storelabel(label_t label, out label_t out_label);
+
+    behavior {
+      on storedata2viewlabel: {}
+      on storedata2viewdata: {}
+      on viewlabel2storelabel: {}
+    }
+  }
+
+
+  interface Idata {
+    in void store_command(command_t command);
+    in void store_result(data_t data, out data_t stored);
+    in void request(notification_t notification, out data_t data);
+    in bool get_selection(out selection_t selection);
+    in void get_location(selection_t selection, out location_t location);
+    in void get_lts_command_selection(selection_t selection, out command_t command);
+    in void get_command_simulate(event_t event, out command_t command);
+    in void get_command_simulate_back(out command_t command);
+
+    behavior {
+      on store_command: {}
+      on store_result: {}
+      on request: {}
+      on get_lts_command_selection: {}
+      on get_command_simulate: {}
+      on get_command_simulate_back: {}
+      on get_selection: reply(true);
+      on get_selection: reply(false);
+      on get_location: {}
+    }
+  }
+
+  interface Idzn {
+    in void command(message_t msg);
+    out void result(data_t data);
+
+    behavior {
+      enum State {Active, DznBusy };
+      State state = State.Active;
+
+      [state.Active] {
+        on command: state = State.DznBusy;
+      }
+      [state.DznBusy] {
+        on inevitable: {
+          result;
+          state = State.Active;
+        }
+        on command: illegal;
+      }
+    }
+  }
+}

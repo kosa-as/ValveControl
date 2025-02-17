@@ -1,0 +1,102 @@
+// Dezyne --- Dezyne command line tools
+//
+// Copyright © 2015, 2022 Rutger van Beusekom <rutger@dezyne.org>
+// Copyright © 2015 Rob Wieringa <rma.wieringa@gmail.com>
+// Copyright © 2016, 2019, 2020, 2021 Jan (janneke) Nieuwenhuizen <janneke@gnu.org>
+// Copyright © 2016, 2018 Paul Hoogendijk <paul@dezyne.org>
+//
+// This file is part of Dezyne.
+//
+// Dezyne is free software: you can redistribute it and/or modify it
+// under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// Dezyne is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public
+// License along with Dezyne.  If not, see <http://www.gnu.org/licenses/>.
+//
+// Commentary:
+//
+// Code:
+
+// camera hardware:
+//   lens: focus => ILens
+//   shutter => IShutter
+//   flash => IFlash
+//   sensor acquire image => ISensor
+//   memory: store/retrieve image => IMemory
+
+// camera software abstractions:
+//   optics: controls the optical path: lens, focus, shutter
+//   acquisition: controls the imaging path: sensor, memory
+//   driver: relays user control to optics and acquisition
+
+import Optics.dzn;
+import Acquisition.dzn;
+
+interface IControl
+{
+  in void setup();
+  in void shoot();
+  in void release();
+
+  out void focus_lock();
+  out void image();
+
+  behavior
+  {
+    enum State {Idle, Setup, Ready, Acquire};
+    State state = State.Idle;
+
+    [state.Idle] on setup:{ state = State.Setup; }
+    [state.Setup]
+    {
+      on shoot: { state = State.Acquire; }
+      on release: { state = State.Idle; }
+      on optional: { state = State.Ready; focus_lock; }
+    }
+    [state.Ready]
+    {
+      on release: { state = State.Idle; }
+      on shoot: { state = State.Acquire; }
+    }
+    [state.Acquire] on inevitable: { image; state = State.Idle; }
+  }
+}
+
+component Driver
+{
+  provides IControl control;
+  requires IAcquisition acquisition;
+  requires IOptics optics;
+
+  behavior
+  {
+    on control.setup(): {acquisition.prepare(); optics.prepare();}
+    on optics.ready(): control.focus_lock();
+    on control.shoot(): {acquisition.acquire(); optics.capture();}
+    on control.release(): {acquisition.cancel(); optics.cancel();}
+    on acquisition.image(): control.image();
+  }
+}
+
+component Camera
+{
+  provides IControl control;
+
+  system
+  {
+    Driver driver;
+    Acquisition acquisition;
+    Optics optics;
+
+    control <=> driver.control;
+    driver.acquisition <=> acquisition.port;
+    driver.optics <=> optics.port;
+  }
+}

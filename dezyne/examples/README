@@ -1,0 +1,7 @@
+The example directory contains a number of concrete Dezyne examples to
+showcase the language, as well as smaller more abstract hello-* examples
+that focus on specific language keywords.
+
+The error sub directory constains erroneous versions of the examples to
+demonstrate verification, as well as more abstract examples to
+demonstrate the main error classes that can be found using verification.
