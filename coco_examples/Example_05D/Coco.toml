@@ -1,8 +1,0 @@
-
-[package]
-sources = ["src"]
-name = "Example_05D"
-
-[language]
-standard = "1.2"
-profiles = ["C++"]

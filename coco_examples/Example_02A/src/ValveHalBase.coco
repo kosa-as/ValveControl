@@ -1,6 +1,0 @@
-import unqualified ValveHAL
-
-@runtime(.MultiThreaded)
-external component ValveHALBase {
-  val client : Provided<ValveHAL>
-}

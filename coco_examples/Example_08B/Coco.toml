@@ -1,8 +1,0 @@
-
-[package]
-sources = ["src"]
-name = "Example_08B"
-
-[language]
-standard = "1.2"
-profiles = ["C++"]
