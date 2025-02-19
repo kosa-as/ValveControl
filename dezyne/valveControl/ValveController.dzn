@@ -1,23 +1,51 @@
+// 阀门控制器接口
+// 定义了阀门控制系统的高层接口
+// 实现R1（基本控制功能）和R2（状态查询）需求
+
 interface ValveController {
+  // 初始化控制器
   in void setup();
+  // 打开阀门命令
   in void open();
+  // 关闭阀门命令
   in void close();
-
-  behavior 
-  {
-    enum valveState{Init, Operational};
-    valveState state = valveState.Init;
-    [state.Init]
-    {
-      on setup: state=valveState.Operational;
+  // 查询阀门是否打开，满足R2需求
+  in bool isOpen();
+  // 查询阀门是否关闭，满足R2需求
+  in bool isClosed();
+  // 移动完成事件通知，满足R6需求（执行反馈）
+  out void moveEnded(Status status);
+  
+  // 阀门状态枚举，用于状态管理和反馈
+  enum Status { Unknown, Opened, Closed, Moving, Error };
+  
+  behaviour {
+    // 跟踪阀门当前位置
+    enum ControlState { Initial, Ready, Moving };
+    ControlState state = ControlState.Initial;
+    
+    // 初始状态：等待setup调用
+    [ControlState.Initial] {
+      on setup(): state = ControlState.Ready;
+      on isOpen(): reply(false);
+      on isClosed(): reply(false);
     }
-
-    [state.Operational]
-    {
-      on open: {}
-      on close: {}
+    
+    // 就绪状态：可以接收开关命令和状态查询
+    [ControlState.Ready] {
+      on open(): state = ControlState.Moving;
+      on close(): state = ControlState.Moving;
+      on isOpen(): reply(position == Status.Opened);
+      on isClosed(): reply(position == Status.Closed);
     }
-
+    
+    // 移动状态：等待操作完成
+    // 实现R8需求（异步操作）
+    [ControlState.Moving] {
+      on inevitable: {
+        moveEnded(position);
+        state = ControlState.Ready;
+      }
+    }
   }
-
-}
+} 

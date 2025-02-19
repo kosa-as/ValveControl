@@ -1,0 +1,13 @@
+component ValveGroup {
+  provides ValveController controller;
+  requires ValveHAL hal;
+  
+  system {
+    ValveControllerImpl controllerImpl;
+    ValveDriverImpl driverImpl;
+    
+    controller <=> controllerImpl.controller;
+    controllerImpl.driver <=> driverImpl.driver;
+    driverImpl.hal <=> hal;
+  }
+} 

@@ -1,0 +1,22 @@
+// 阀门硬件模拟器实现
+// 实现R7需求（硬件变更适应性）中的硬件模拟器集成
+// 用于测试和验证阀门控制系统
+
+component SimulatorImpl {
+  provides ValveHAL hal;
+  
+  behaviour {
+    bool isSetup = false;
+    
+    // 模拟硬件初始化
+    [!isSetup] on hal.setParameters(): {
+      isSetup = true;
+    }
+    
+    // 模拟阀门移动操作
+    // 使用inevitable来模拟异步操作，满足R8需求
+    [isSetup] on hal.move(): {
+      on inevitable: {}
+    }
+  }
+} 

@@ -1,0 +1,21 @@
+// 阀门控制系统测试组件
+// 用于测试和验证整个阀门控制系统的功能
+// 实现R7需求（硬件变更适应性）中的测试验证部分
+
+component TestValveGroup {
+  // 对外提供标准的阀门控制接口
+  provides ValveController controller;
+  
+  system {
+    // 实际的阀门控制组件
+    ValveGroup valve;
+    // 硬件模拟器，用于测试
+    SimulatorImpl simulator;
+    
+    // 系统连接配置
+    // 将控制器接口连接到阀门组
+    controller <=> valve.controller;
+    // 将阀门组的硬件接口连接到模拟器
+    valve.hal <=> simulator.hal;
+  }
+} 

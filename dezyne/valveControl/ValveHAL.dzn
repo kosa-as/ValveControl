@@ -1,10 +1,29 @@
-interface ValveHAL {
-  enum Moves {Open, Close};
-  extern MovesEnum $Moves$;
-  in void move(MovesEnum target);
+// 对应 coco_examples/src/ValveHAL.coco
+// HAL (Hardware Abstraction Layer) 接口定义
+// 提供了与具体硬件交互的抽象层，满足R5需求（硬件抽象）
 
-  behavior
-  {
-    on move: {}
+interface ValveHAL {
+  // 在coco中使用了extern type ValveParameters
+  // 用于配置阀门的参数设置,这里的定义为什么报错呢？
+  enum Moves { Open = 20, Close = 101};
+  
+  // 对应coco中的setParameters(ValveParameters setup)
+  // 用于初始化和配置阀门硬件
+  in void setParameters();
+  
+  // 对应coco中的move(Moves target)
+  // 控制阀门执行具体的开关动作
+  in void move();
+  
+  behaviour {
+    bool isValidSetup = false;
+    
+    // 确保在设置参数前不能执行移动操作
+    [!isValidSetup] on setParameters(): {
+      isValidSetup = true;
+    }
+    
+    // 只有在正确设置参数后才能执行移动操作
+    [isValidSetup] on move(_): {}
   }
-}
+} 

@@ -1,0 +1,34 @@
+component ValveDriverImpl {
+  provides ValveDriver driver;
+  requires ValveHAL hal;
+  
+  behaviour {
+    enum State { Initial, Ready, Moving };
+    State state = State.Initial;
+    
+    [state.Initial] {
+      on driver.setup(): {
+        hal.setParameters();
+        state = State.Ready;
+      }
+    }
+    
+    [state.Ready] {
+      on driver.open(): {
+        hal.move();
+        state = State.Moving;
+      }
+      on driver.close(): {
+        hal.move();
+        state = State.Moving;
+      }
+    }
+    
+    [state.Moving] {
+      on inevitable: {
+        driver.endOfMovement(ValveDriver.Status.Opened);
+        state = State.Ready;
+      }
+    }
+  }
+} 

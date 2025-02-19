@@ -1,50 +1,63 @@
-import ValveController.dzn;
-import ValveHAL.dzn;
+// 阀门控制器实现
+// 实现了R1-R3的核心功能需求
+// 提供高层次的阀门控制和状态管理
 
 component ValveControllerImpl {
-  //提供阀门控制所需要的控制软件应用层
-  provides ValveController valveController;
-  //需要阀门的端口申明
-  requires ValveHAL valveHAL;
+  provides ValveController controller;
+  requires ValveDriver driver;
   
-  behavior
-  {//状态机，下面的状态转移
-
-    enum implState{Initial, Unknown, Opened, Closed};
-
-    implState state=implState.Initial;
-    [state.Initial]
-    {
-      on valveController.setup(): state=implState.Unknown;
-    }
-
-    [state.Unknown]
-    {
-      on valveController.open(): {
-        valveHAL.move($ValveHAL::Moves::Open$); 
-        state=implState.Opened;
-      }
-      on valveController.close(): {
-        valveHAL.move($ValveHAL::Moves::Close$); 
-        state=implState.Closed;
+  behaviour {
+    enum State { Initial, Ready_Unknown, Ready_Opened, Ready_Closed, Moving };
+    State state = State.Initial;
+    
+    // 初始化处理
+    [state.Initial] {
+      on controller.setup(): {
+        driver.setup();
+        state = State.Ready_Unknown;
       }
     }
-
-    [state.Opened]
-    {
-      on valveController.close(): {
-        valveHAL.move($ValveHAL::Moves::Close$); 
-        state=implState.Closed;
+    
+    // 未知状态处理，满足R2需求（状态查询）
+    [state.Ready_Unknown] {
+      on controller.isOpen(): reply(false);
+      on controller.isClosed(): reply(false);
+      on controller.open(): {
+        driver.open();
+        state = State.Moving;
+      }
+      on controller.close(): {
+        driver.close();
+        state = State.Moving;
       }
     }
-
-    [state.Closed]
-    {
-      on valveController.open(): {
-        valveHAL.move($ValveHAL::Moves::Open$); 
-        state=implState.Opened;
+    
+    // 已打开状态处理
+    [state.Ready_Opened] {
+      on controller.isOpen(): reply(true);
+      on controller.open(): {
+        controller.moveEnded(ValveController.Status.Opened);
+      }
+    }
+    
+    // 已关闭状态处理
+    [state.Ready_Closed] {
+      on controller.isClosed(): reply(true);
+      on controller.close(): {
+        controller.moveEnded(ValveController.Status.Closed);
+      }
+    }
+    
+    // 移动状态处理，实现R8需求（异步操作）
+    [state.Moving] {
+      on driver.endOfMovement(status: ValveDriver.Status): {
+        controller.moveEnded(status);
+        match(status) {
+          case Status.Opened: state = State.Ready_Opened;
+          case Status.Closed: state = State.Ready_Closed;
+          default: state = State.Ready_Unknown;
+        };
       }
     }
   }
-}
-
+} 

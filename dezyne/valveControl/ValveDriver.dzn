@@ -1,0 +1,40 @@
+// 阀门驱动接口
+// 提供了阀门基本操作的抽象，实现R1基本控制功能需求
+// 对应R4需求，支持不同类型的阀门执行器
+
+interface ValveDriver {
+  // 阀门状态枚举，用于反馈当前阀门状态
+  enum Status { Unknown, Opened, Closed, Moving, Error };
+  
+  // 初始化驱动器
+  in void setup();
+  // 打开阀门命令
+  in void open();
+  // 关闭阀门命令
+  in void close();
+  // 移动完成事件通知，满足R6需求（执行反馈）
+  out void endOfMovement(Status status);
+  
+  behaviour {
+    Status status = Status.Unknown;
+    
+    // 初始状态，等待setup
+    state Initial {
+      on setup(): to Ready;
+    }
+    
+    // 就绪状态，可以接收开关命令
+    state Ready {
+      on open(): to Moving;
+      on close(): to Moving;
+    }
+    
+    // 移动状态，等待完成并发送状态通知
+    state Moving {
+      on inevitable: {
+        endOfMovement(status);
+        to Ready;
+      }
+    }
+  }
+} 
