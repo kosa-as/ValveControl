@@ -1,13 +1,25 @@
+// 阀门控制组件组
+// 将各个组件组织在一起形成完整的阀门控制系统
+// 实现R3需求（控制系统适配性）
+
 component ValveGroup {
+  // 对外提供标准的阀门控制接口
   provides ValveController controller;
+  // 需要硬件抽象层接口
   requires ValveHAL hal;
   
   system {
+    // 阀门控制器实现组件
     ValveControllerImpl controllerImpl;
+    // 阀门驱动器实现组件
     ValveDriverImpl driverImpl;
     
+    // 系统连接配置
+    // 将控制器接口连接到实现组件
     controller <=> controllerImpl.controller;
+    // 将控制器和驱动器连接起来
     controllerImpl.driver <=> driverImpl.driver;
+    // 将驱动器连接到硬件抽象层
     driverImpl.hal <=> hal;
   }
 } 

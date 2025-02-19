@@ -1,11 +1,19 @@
+// 阀门驱动器实现组件
+// 负责将高层控制命令转换为具体的硬件操作
+// 实现R4需求（硬件兼容性）和R5需求（硬件抽象）
+
 component ValveDriverImpl {
+  // 提供标准的阀门驱动接口
   provides ValveDriver driver;
+  // 需要硬件抽象层接口
   requires ValveHAL hal;
   
   behaviour {
+    // 驱动器状态定义
     enum State { Initial, Ready, Moving };
     State state = State.Initial;
     
+    // 初始状态处理：等待设置参数
     [state.Initial] {
       on driver.setup(): {
         hal.setParameters();
@@ -13,6 +21,7 @@ component ValveDriverImpl {
       }
     }
     
+    // 就绪状态处理：可以接收开关命令
     [state.Ready] {
       on driver.open(): {
         hal.move();
@@ -24,6 +33,8 @@ component ValveDriverImpl {
       }
     }
     
+    // 移动状态处理：等待操作完成
+    // 实现R8需求（异步操作）的底层支持
     [state.Moving] {
       on inevitable: {
         driver.endOfMovement(ValveDriver.Status.Opened);
