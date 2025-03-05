@@ -1,0 +1,66 @@
+# 排除构建目录
+/build/
+/out/
+/cmake-build-*/
+
+# 编译生成的文件
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# 预编译头文件
+*.gch
+*.pch
+
+# 依赖文件
+*.d
+
+# Visual Studio文件
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.suo
+*.user
+*.userosscache
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.opendb
+ipch/
+
+# Visual Studio Code文件
+.vscode/
+*.code-workspace
+
+# CLion文件
+.idea/
+cmake-build-*/
+
+# 临时文件
+*.swp
+*~
+*.tmp
+*.bak
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志文件
+*.log
+
+# 调试信息
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# 可执行文件
+valve_control 
